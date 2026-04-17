@@ -126,7 +126,7 @@ export default function QuizClient() {
     }
   };
 
-  const progress = ((questionIndex) / questions.length) * 100;
+  const progress = ((questionIndex + 1) / questions.length) * 100;
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 p-4">
