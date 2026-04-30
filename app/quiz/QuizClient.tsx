@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { quizzes, calculateScore } from "@/lib/quizData";
+import { calculateScore, type Quiz } from "@/lib/quizData";
 
 type QuizResult = {
   question: string;
@@ -17,11 +17,10 @@ type QuizResult = {
 type Phase = "revealing" | "answering" | "feedback";
 
 const CHAR_INTERVAL_MS = 100;
-const TOTAL_QUESTIONS = 10;
 
-export default function QuizClient() {
+export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const router = useRouter();
-  const questions = quizzes.slice(0, TOTAL_QUESTIONS);
+  const questions = quizzes;
 
   const [questionIndex, setQuestionIndex] = useState(0);
   const [charsShown, setCharsShown] = useState(0);
