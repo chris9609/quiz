@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 作問スクリプト
+__pycache__/
+
+# レビュー途中の状態が入る。コミットすると衝突する
+data/candidates.json
+
+# 再生成できるキャッシュ
+data/wikipedia_titles.json

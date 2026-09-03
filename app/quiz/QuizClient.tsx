@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { calculateScore, type Quiz } from "@/lib/quizData";
+import { type Quiz } from "@/lib/quizData";
+import { calculateScore } from "@/lib/score";
+import { isCorrectAnswer } from "@/lib/answerCheck";
 
 type QuizResult = {
   question: string;
@@ -17,6 +19,8 @@ type QuizResult = {
 type Phase = "revealing" | "answering" | "feedback";
 
 const CHAR_INTERVAL_MS = 100;
+/** 回答送信の Enter がそのまま「次へ」に貫通しないよう、feedback 直後は Enter を無視する */
+const FEEDBACK_ENTER_GRACE_MS = 400;
 
 export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const router = useRouter();
@@ -31,9 +35,14 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const feedbackAtRef = useRef(0);
 
   const currentQuiz = questions[questionIndex];
   const displayedText = currentQuiz.question.slice(0, charsShown);
+
+  const focusInput = () => {
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
 
   const stopRevealing = useCallback(() => {
     if (intervalRef.current) {
@@ -41,23 +50,25 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       intervalRef.current = null;
     }
     setPhase("answering");
-    setTimeout(() => inputRef.current?.focus(), 50);
+    focusInput();
   }, []);
 
-  // Start revealing characters
+  // 問題文を1文字ずつ表示する。
+  // state のリセットは「次の問題へ」を押したときに行うので、この effect は
+  // タイマーという外部システムの開始／停止だけを担当する。
   useEffect(() => {
-    setCharsShown(0);
-    setPhase("revealing");
-    setUserAnswer("");
-    setLastResult(null);
+    if (phase !== "revealing") return;
 
+    const totalChars = questions[questionIndex].question.length;
     intervalRef.current = setInterval(() => {
       setCharsShown((prev) => {
-        if (prev >= currentQuiz.question.length) {
-          clearInterval(intervalRef.current!);
-          intervalRef.current = null;
+        if (prev >= totalChars) {
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           setPhase("answering");
-          setTimeout(() => inputRef.current?.focus(), 50);
+          focusInput();
           return prev;
         }
         return prev + 1;
@@ -65,26 +76,20 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     }, CHAR_INTERVAL_MS);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [questionIndex, currentQuiz.question.length]);
-
-  // Enter key to stop revealing
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && phase === "revealing") {
-        e.preventDefault();
-        stopRevealing();
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [phase, stopRevealing]);
+  }, [questionIndex, phase, questions]);
 
   const submitAnswer = () => {
     const trimmed = userAnswer.trim();
-    const correct =
-      trimmed.toLowerCase() === currentQuiz.answer.toLowerCase();
+    const correct = isCorrectAnswer(
+      trimmed,
+      currentQuiz.answer,
+      currentQuiz.accepted_answers
+    );
     const score = correct
       ? calculateScore(currentQuiz.question.length, charsShown)
       : 0;
@@ -99,29 +104,52 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       score,
     };
 
+    feedbackAtRef.current = Date.now();
     setLastResult({ correct, score, answer: currentQuiz.answer });
     setResults((prev) => [...prev, result]);
     setPhase("feedback");
   };
 
-  const handleAnswerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      submitAnswer();
-    }
-  };
-
-  const nextQuestion = () => {
+  const nextQuestion = useCallback(() => {
     const nextIndex = questionIndex + 1;
     if (nextIndex >= questions.length) {
-      const allResults = [...results];
-      const totalScore = allResults.reduce((s, r) => s + r.score, 0);
-      const correctCount = allResults.filter((r) => r.correct).length;
+      const totalScore = results.reduce((s, r) => s + r.score, 0);
+      const correctCount = results.filter((r) => r.correct).length;
       router.push(
         `/result?score=${totalScore}&correct=${correctCount}&total=${questions.length}`
       );
-    } else {
-      setQuestionIndex(nextIndex);
+      return;
+    }
+    // 次の問題ぶんの state をここでまとめてリセットする
+    setQuestionIndex(nextIndex);
+    setCharsShown(0);
+    setUserAnswer("");
+    setLastResult(null);
+    setPhase("revealing");
+  }, [questionIndex, questions.length, results, router]);
+
+  // Enter: 出題中は表示を止める / 正誤表示中は次の問題へ
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Enter") return;
+      if (phase === "revealing") {
+        e.preventDefault();
+        stopRevealing();
+      } else if (phase === "feedback") {
+        if (Date.now() - feedbackAtRef.current < FEEDBACK_ENTER_GRACE_MS) return;
+        e.preventDefault();
+        nextQuestion();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [phase, stopRevealing, nextQuestion]);
+
+  const handleAnswerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // IME で変換確定した Enter は送信扱いにしない
+    if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      submitAnswer();
     }
   };
 
@@ -191,7 +219,9 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                 送信
               </button>
             </div>
-            <p className="text-xs text-gray-400 text-center">Enter キーでも送信できます</p>
+            <p className="text-xs text-gray-400 text-center">
+              ひらがな・カタカナどちらでも、漢字の読みでも正解になります
+            </p>
           </div>
         )}
 
@@ -207,11 +237,9 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                 {lastResult.correct ? "正解！" : "不正解"}
               </p>
             </div>
-            {!lastResult.correct && (
-              <p className="text-center text-gray-600">
-                正解: <span className="font-bold text-gray-800">{lastResult.answer}</span>
-              </p>
-            )}
+            <p className="text-center text-gray-600">
+              正解: <span className="font-bold text-gray-800">{lastResult.answer}</span>
+            </p>
             {lastResult.correct && (
               <p className="text-center text-green-700 font-semibold text-lg">
                 +{lastResult.score} 点
@@ -224,6 +252,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
               >
                 {questionIndex + 1 >= questions.length ? "結果を見る" : "次の問題へ →"}
               </button>
+              <p className="text-xs text-gray-400 mt-2">Enter でも進めます</p>
             </div>
           </div>
         )}

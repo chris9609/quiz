@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "早押しクイズ",  
+  title: "早押しクイズ",
   description: "問題文が1文字ずつ表示される早押しクイズアプリ",
 };
 

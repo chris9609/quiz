@@ -1,18 +1,22 @@
-create table quizzes (
-  id uuid primary key default gen_random_uuid(),
-  question text not null,
-  answer text not null,
-  created_at timestamptz default now()
+-- 早押しクイズ: テーブル定義
+-- Supabase の SQL Editor にそのまま貼って実行する（seed.sql より先）
+
+create table if not exists quizzes (
+  id               uuid primary key default gen_random_uuid(),
+  question         text not null,
+  answer           text not null,
+  -- 別解（読みがな・略称・表記ゆれ）。判定時は answer と同じ正規化を通して突き合わせる。
+  -- カタカナ⇔ひらがなや記号は lib/answerCheck.ts の正規化が吸収するので、
+  -- ここに入れるのは「漢字の読み」「略称」など正規化では埋まらないものだけ。
+  accepted_answers text[] not null default '{}',
+  created_at       timestamptz not null default now()
 );
 
-insert into quizzes (question, answer) values
-  ('日本で一番高い山はどこですか？', '富士山'),
-  ('1年は何日ありますか？', '365'),
-  ('水の化学式は何ですか？', 'H2O'),
-  ('太陽系で一番大きな惑星は何ですか？', '木星'),
-  ('日本の首都はどこですか？', '東京'),
-  ('人間の体の中で一番大きな臓器は何ですか？', '肝臓'),
-  ('世界で一番長い川はどこですか？', 'ナイル川'),
-  ('サッカーのワールドカップは何年ごとに開催されますか？', '4'),
-  ('日本語で「ありがとう」を英語で言うと何ですか？', 'thank you'),
-  ('光の速さは秒速約何万キロメートルですか？', '30');
+-- 匿名ユーザーには読み取りだけ許可する（書き込みは service_role のみ）
+alter table quizzes enable row level security;
+
+drop policy if exists "quizzes are readable by anyone" on quizzes;
+create policy "quizzes are readable by anyone"
+  on quizzes for select
+  to anon, authenticated
+  using (true);

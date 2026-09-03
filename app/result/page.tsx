@@ -1,24 +1,33 @@
 import Link from "next/link";
+import { MAX_SCORE_PER_QUESTION, QUESTIONS_PER_GAME } from "@/lib/score";
 
 type Props = {
   searchParams: Promise<{ score?: string; correct?: string; total?: string }>;
 };
 
+/**
+ * ランクは「スコア達成率」と「正解率」の両方で決める。
+ * スコアには正解の基礎点が含まれるので達成率だけ見ると、
+ * 半分しか当たっていないプレイと全問正解（ただし遅い）が同じ帯に来てしまう。
+ */
+function determineRank(scoreRate: number, accuracy: number) {
+  if (scoreRate >= 70 && accuracy >= 90) return { rank: "S", color: "text-yellow-500" };
+  if (scoreRate >= 50 && accuracy >= 70) return { rank: "A", color: "text-indigo-600" };
+  if (scoreRate >= 30 && accuracy >= 50) return { rank: "B", color: "text-green-600" };
+  if (accuracy >= 30) return { rank: "C", color: "text-gray-500" };
+  return { rank: "D", color: "text-gray-400" };
+}
+
 export default async function ResultPage({ searchParams }: Props) {
   const params = await searchParams;
   const score = parseInt(params.score ?? "0", 10);
   const correct = parseInt(params.correct ?? "0", 10);
-  const total = parseInt(params.total ?? "10", 10);
+  const total = parseInt(params.total ?? String(QUESTIONS_PER_GAME), 10);
 
   const accuracy = total > 0 ? Math.round((correct / total) * 100) : 0;
-  const maxScore = total * 1000;
+  const maxScore = total * MAX_SCORE_PER_QUESTION;
   const scoreRate = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
-
-  let rank = "C";
-  let rankColor = "text-gray-500";
-  if (scoreRate >= 80) { rank = "S"; rankColor = "text-yellow-500"; }
-  else if (scoreRate >= 60) { rank = "A"; rankColor = "text-indigo-600"; }
-  else if (scoreRate >= 40) { rank = "B"; rankColor = "text-green-600"; }
+  const { rank, color: rankColor } = determineRank(scoreRate, accuracy);
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 p-4">
