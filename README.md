@@ -92,7 +92,12 @@ DB の `accepted_answers` 配列に別解として持たせている。
 ### 生成物は自動でDBに入れない
 
 資料を読ませても、問題文の形式は外すことがある（3文構成になる、冗長になるなど）。
-そこで生成物はいったん `data/candidates.json` に貯め、**人が採否を決めたものだけ**を投入する。
+そこで生成物はいったん `data/candidates.json` に貯め、**レビューを通ったものだけ**を投入する。
+
+レビューは Claude（Claude Code のセッション）が `scripts/review_rubric.md` の基準で行う。
+形式の崩れは機械で落とせるが、「答えがマニアックすぎて誰も言えない」「ジャンルが合わない」といった
+判断は知識が要るので、ローカルの 4B モデルには任せない（上の表のとおり知識タスクは外す）。
+判定理由は候補の `review_reason` に残す。
 
 機械的に弾けるものは自動で落とす:
 
@@ -108,7 +113,8 @@ DB の `accepted_answers` 配列に別解として持たせている。
 
 ```bash
 python3 scripts/generate_quiz.py 10     # 候補を10問作る（1問あたり約12秒）
-python3 scripts/review_candidates.py    # 1問ずつ y/n で採否を決める
+# Claude Code で「候補をレビューして」と頼む（review_rubric.md の基準で採否を決めて理由を書く）
+python3 scripts/review_candidates.py    # 自分で 1問ずつ y/n で決めたい場合はこちら
 python3 scripts/import_approved.py      # 採用したものをDBへ投入
 ```
 
@@ -163,9 +169,9 @@ npm run dev    # http://localhost:3000
 0 6 * * 1 cd /path/to/quiz && python3 scripts/generate_quiz.py 10 >> ~/cron/logs/quiz-generate.log 2>&1
 ```
 
-**レビューと投入は cron に載せない。** 候補の採否は人が決めるのがこの仕組みの要で、
+**レビューと投入は cron に載せない。** 候補の採否は Claude が知識ベースで判断するのがこの仕組みの要で、
 自動投入すると Wikipedia を読ませても残る形式の崩れ（多文構成など）がそのまま入る。
-貯まった候補は手が空いたときに `review_candidates.py` で処理する。
+貯まった候補は手が空いたときに Claude Code で「候補をレビューして」と頼んで処理する。
 
 ## テスト
 

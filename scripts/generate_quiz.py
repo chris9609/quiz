@@ -31,6 +31,9 @@ OLLAMA_MODEL = "gemma4:e4b"
 # 既存34問はおおむね 60〜120 文字。実測で長すぎる問題文が出たので上下を切る
 MIN_QUESTION_CHARS = 45
 MAX_QUESTION_CHARS = 150
+# 「江戸城跡のヒカリゴケ生育地」のような天然記念物の記事名は、
+# 良質な記事に多いが答えとして誰も言えない。作問前に弾く。
+UNANSWERABLE_TITLE_SUFFIXES = ("生育地", "自生地", "生息地", "繁殖地", "群落", "遺跡", "古墳群")
 
 PROMPT = """あなたは競技クイズの作問者です。
 以下の【資料】だけを根拠に、早押しクイズを1問作ってください。
@@ -92,6 +95,8 @@ def validate(item: dict, title: str, known_answers: set[str]) -> str | None:
 
     if not q or not a:
         return "question か answer が空"
+    if title.endswith(UNANSWERABLE_TITLE_SUFFIXES):
+        return "答えが天然記念物・遺跡の名称で早押しに向かない"
     if a != title:
         return f"答えが指定と違う（{a!r} != {title!r}）"
     if len(q) < MIN_QUESTION_CHARS:
