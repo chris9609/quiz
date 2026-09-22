@@ -113,7 +113,9 @@ python3 scripts/import_approved.py      # 採用したものをDBへ投入
 ```
 
 投入には `SUPABASE_SECRET_KEY` が必要（RLS で匿名の書き込みを塞いでいるため）。
-`.env.local` に **`NEXT_PUBLIC_` を付けずに** 書く。付けるとブラウザに配信される。
+鍵はこのリポジトリには置かず、他プロジェクトと同じく `~/claude/application/MCP/.env` の
+`SUPABASE_URL` / `SUPABASE_SECRET_KEY` を借りる（URL が一致するときだけ使う）。
+`.env.local` に置くのは Next.js が読む公開キーだけ。`NEXT_PUBLIC_` 付きで Secret key を書くとブラウザに配信されるので絶対にしない。
 
 依存は標準ライブラリのみ。仮想環境も `pip install` も要らない。
 

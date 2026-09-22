@@ -7,6 +7,9 @@ Supabase への読み書き（標準ライブラリのみ）。
 
 SUPABASE_SECRET_KEY には NEXT_PUBLIC_ を付けないこと。
 付けるとNext.jsがブラウザに埋め込んでしまい、誰でもDBを書き換えられるようになる。
+
+SUPABASE_SECRET_KEY はこのリポジトリには置かず、他プロジェクト（shogi-analyzer 等）と同じく
+`~/claude/application/MCP/.env` のものを借りる。
 """
 import json
 import urllib.request
@@ -14,19 +17,24 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = BASE_DIR / ".env.local"
+MCP_ENV_FILE = Path.home() / "claude/application/MCP/.env"
 
 
-def load_env() -> dict[str, str]:
+def _parse_env(path: Path) -> dict[str, str]:
     env: dict[str, str] = {}
-    if not ENV_FILE.exists():
-        raise FileNotFoundError(f"{ENV_FILE} がありません")
-    for line in ENV_FILE.read_text().splitlines():
+    for line in path.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
         env[k.strip()] = v.strip().strip('"').strip("'")
     return env
+
+
+def load_env() -> dict[str, str]:
+    if not ENV_FILE.exists():
+        raise FileNotFoundError(f"{ENV_FILE} がありません")
+    return _parse_env(ENV_FILE)
 
 
 def _request(path: str, key: str, method: str = "GET", body=None, extra_headers=None):
@@ -50,14 +58,17 @@ def _publishable_key() -> str:
 
 
 def _secret_key() -> str:
-    env = load_env()
-    key = env.get("SUPABASE_SECRET_KEY")
-    if not key:
+    if not MCP_ENV_FILE.exists():
+        raise RuntimeError(f"{MCP_ENV_FILE} がありません")
+    mcp = _parse_env(MCP_ENV_FILE)
+    # 別プロジェクトの鍵を誤って使わないよう、URL が一致するときだけ借りる
+    if mcp.get("SUPABASE_URL", "").rstrip("/") != load_env()["NEXT_PUBLIC_SUPABASE_URL"].rstrip("/"):
         raise RuntimeError(
-            ".env.local に SUPABASE_SECRET_KEY がありません。\n"
-            "  Supabase ダッシュボード → Project Settings → API Keys の\n"
-            "  Secret key（sb_secret_... ）を、NEXT_PUBLIC_ を付けずに追記してください。"
+            f"{MCP_ENV_FILE} の SUPABASE_URL がこのプロジェクトの NEXT_PUBLIC_SUPABASE_URL と一致しません"
         )
+    key = mcp.get("SUPABASE_SECRET_KEY")
+    if not key:
+        raise RuntimeError(f"{MCP_ENV_FILE} に SUPABASE_SECRET_KEY がありません")
     return key
 
 
