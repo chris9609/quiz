@@ -50,6 +50,8 @@ RUBRIC_FILE = BASE_DIR / "scripts" / "review_rubric.md"
 WORK_DIR = Path(tempfile.gettempdir()) / "quiz_review"
 
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", str(Path.home() / ".local/bin/claude"))
+# 3問で約2分。夜間バッチで claude が固まっても後続プロジェクトを道連れにしないための上限
+CLAUDE_TIMEOUT_SEC = 900
 VALID_STATUSES = {"approved", "rejected"}
 REVIEWER = "claude"
 
@@ -150,10 +152,13 @@ def run_claude(prompt: str) -> str:
     result_file = WORK_DIR / f"prompt_{stamp}.result.json"
     prompt_file.write_text(prompt)
     print(f"claude -p でレビュー中... （プロンプト: {prompt_file}）")
-    proc = subprocess.run(
-        [CLAUDE_BIN, "-p", "--tools", "", "--output-format", "json", "--no-session-persistence"],
-        input=prompt, capture_output=True, text=True,
-    )
+    try:
+        proc = subprocess.run(
+            [CLAUDE_BIN, "-p", "--tools", "", "--output-format", "json", "--no-session-persistence"],
+            input=prompt, capture_output=True, text=True, timeout=CLAUDE_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"claude -p が {CLAUDE_TIMEOUT_SEC // 60} 分以内に終わりませんでした") from None
     result_file.write_text(proc.stdout)
     if proc.returncode != 0:
         raise RuntimeError(f"claude -p が失敗しました（exit {proc.returncode}）\n{proc.stderr}")

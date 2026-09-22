@@ -132,6 +132,15 @@ Claude に材料を全部渡してツールを持たせないのは、無人実�
 `--dry-run` で書き戻しだけ止められる。`--list` で候補の状態一覧。
 手動で見たいときは Claude Code のセッションで「候補をレビューして」と頼む。
 
+### 夜間バッチ
+
+上の3コマンドを `~/cron/projects/quiz.sh` が毎朝5時に順に回す（`~/cron/run_all.sh` が拾う。リポジトリ外）。
+ログは `~/cron/logs/quiz/YYYY-MM-DD.log`。途中で失敗したら Slack の #エラー に通知する。
+10問生成 → 採用3〜5問 → 投入、で1晩8分ほど。
+
+cron の環境変数はほぼ空なので、`quiz.sh` で `USER` を export している。
+`claude -p` は Keychain から OAuth 情報を引くのに `USER` を使い、無いと "Not logged in" になる。
+
 投入には `SUPABASE_SECRET_KEY` が必要（RLS で匿名の書き込みを塞いでいるため）。
 鍵はこのリポジトリには置かず、他プロジェクトと同じく `~/claude/application/MCP/.env` の
 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` を借りる（URL が一致するときだけ使う）。
