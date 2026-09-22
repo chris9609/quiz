@@ -209,7 +209,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                 onChange={(e) => setUserAnswer(e.target.value)}
                 onKeyDown={handleAnswerKeyDown}
                 placeholder="回答を入力..."
-                className="flex-1 border-2 border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-lg"
+                className="flex-1 border-2 border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-lg text-gray-900 bg-white placeholder:text-gray-400"
               />
               <button
                 onClick={submitAnswer}
