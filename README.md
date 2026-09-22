@@ -114,6 +114,7 @@ DB の `accepted_answers` 配列に別解として持たせている。
 ```bash
 python3 scripts/generate_quiz.py 10     # 候補を10問作る（1問あたり約12秒）
 # Claude Code で「候補をレビューして」と頼む（review_rubric.md の基準で採否を決めて理由を書く）
+claude -p "..." | python3 scripts/apply_review.py   # 無人実行時: Claude の判定JSON（問題文の手直し含む）を検証して書き戻す
 python3 scripts/review_candidates.py    # 自分で 1問ずつ y/n で決めたい場合はこちら
 python3 scripts/import_approved.py      # 採用したものをDBへ投入
 ```
