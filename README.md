@@ -113,11 +113,24 @@ DB の `accepted_answers` 配列に別解として持たせている。
 
 ```bash
 python3 scripts/generate_quiz.py 10     # 候補を10問作る（1問あたり約12秒）
-# Claude Code で「候補をレビューして」と頼む（review_rubric.md の基準で採否を決めて理由を書く）
-claude -p "..." | python3 scripts/apply_review.py   # 無人実行時: Claude の判定JSON（問題文の手直し含む）を検証して書き戻す
-python3 scripts/review_candidates.py    # 自分で 1問ずつ y/n で決めたい場合はこちら
+python3 scripts/review_with_claude.py   # Claude にレビューさせて書き戻す（3問で約2分）
 python3 scripts/import_approved.py      # 採用したものをDBへ投入
 ```
+
+`review_with_claude.py` の中身は3段:
+
+```
+build_prompt()   採否基準 + pending 候補 + 各候補の Wikipedia 導入部を1つのプロンプトに組む
+run_claude()     claude -p --tools "" で読ませ、判定 JSON [{answer,status,reason,question?}] だけ返させる
+apply_reviews()  検証して candidates.json に書き戻す（1件でも不正なら何も書かない）
+```
+
+Claude に材料を全部渡してツールを持たせないのは、無人実行で候補ファイルや DB を触られる余地を無くすため。
+判定の JSON に `question` を付けると問題文の言い回しを手直しできる（元の文は `original_question` に残る）。
+`claude -p` はサブスク枠（OAuth）で動くので API 課金はない。`--bare` を付けると API キー必須になるので付けない。
+
+`--dry-run` で書き戻しだけ止められる。`--list` で候補の状態一覧。
+手動で見たいときは Claude Code のセッションで「候補をレビューして」と頼む。
 
 投入には `SUPABASE_SECRET_KEY` が必要（RLS で匿名の書き込みを塞いでいるため）。
 鍵はこのリポジトリには置かず、他プロジェクトと同じく `~/claude/application/MCP/.env` の
