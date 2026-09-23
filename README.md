@@ -94,7 +94,7 @@ DB の `accepted_answers` 配列に別解として持たせている。
 資料を読ませても、問題文の形式は外すことがある（3文構成になる、冗長になるなど）。
 そこで生成物はいったん `data/candidates.json` に貯め、**レビューを通ったものだけ**を投入する。
 
-レビューは Claude（Claude Code のセッション）が `scripts/review_rubric.md` の基準で行う。
+レビューは Claude（`claude -p`）が `scripts/review_rubric.md` の基準で行う。
 形式の崩れは機械で落とせるが、「答えがマニアックすぎて誰も言えない」「ジャンルが合わない」といった
 判断は知識が要るので、ローカルの 4B モデルには任せない（上の表のとおり知識タスクは外す）。
 判定理由は候補の `review_reason` に残す。
@@ -134,12 +134,16 @@ Claude に材料を全部渡してツールを持たせないのは、無人実�
 
 ### 夜間バッチ
 
-上の3コマンドを `~/cron/projects/quiz.sh` が毎朝5時に順に回す（`~/cron/run_all.sh` が拾う。リポジトリ外）。
+上の3コマンドを `~/cron/quiz.sh` が毎朝5時に順に回す（リポジトリ外）。
+起動は cron ではなく launchd の LaunchAgent（`~/Library/LaunchAgents/com.chris.quiz-nightly.plist`）。
 ログは `~/cron/logs/quiz/YYYY-MM-DD.log`。途中で失敗したら Slack の #エラー に通知する。
 10問生成 → 採用3〜5問 → 投入、で1晩8分ほど。
 
-cron の環境変数はほぼ空なので、`quiz.sh` で `USER` を export している。
-`claude -p` は Keychain から OAuth 情報を引くのに `USER` を使い、無いと "Not logged in" になる。
+**cron だと `claude -p` が "Not logged in" で落ちる。** `claude -p` は OAuth 情報を Keychain から引くが、
+cron はログイン中の GUI セッションの外で動くので Keychain を読めない（2026-09-23 の初回無人実行で発覚）。
+LaunchAgent は GUI セッション内で動くので通る。ターミナルで `env -i` して試すと GUI セッション内なので通ってしまい、再現しない点に注意。
+launchd の環境変数もほぼ空で、`USER` が無くても "Not logged in" になるので `quiz.sh` で export している。
+スリープ中に5時を過ぎた場合、cron はその回を飛ばすが launchd は復帰時に実行する。
 
 投入には `SUPABASE_SECRET_KEY` が必要（RLS で匿名の書き込みを塞いでいるため）。
 鍵はこのリポジトリには置かず、他プロジェクトと同じく `~/claude/application/MCP/.env` の
@@ -182,19 +186,22 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxx
 npm run dev    # http://localhost:3000
 ```
 
-### 5. cron を仕込む
+### 5. 定期実行を仕込む
+
+夜間バッチ（生成 → レビュー → 投入）は launchd に登録する（cron では `claude -p` が動かない。理由は「夜間バッチ」の節）。
+
+```bash
+# ~/Library/LaunchAgents/com.chris.quiz-nightly.plist を置いてから（StartCalendarInterval で Hour 5 / Minute 0、~/cron/quiz.sh を bash で起動）
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.chris.quiz-nightly.plist
+launchctl kickstart gui/$(id -u)/com.chris.quiz-nightly   # 今すぐ1回動かして確かめる
+```
+
+keepalive は `claude -p` を使わないので cron でよい。
 
 ```
 # 毎日: Supabase の一時停止を防ぐ
 30 7 * * * /path/to/quiz/scripts/keepalive.sh >> ~/cron/logs/quiz-keepalive.log 2>&1
-
-# 毎週月曜: 問題の候補を10問ぶん作って貯めておく
-0 6 * * 1 cd /path/to/quiz && python3 scripts/generate_quiz.py 10 >> ~/cron/logs/quiz-generate.log 2>&1
 ```
-
-**レビューと投入は cron に載せない。** 候補の採否は Claude が知識ベースで判断するのがこの仕組みの要で、
-自動投入すると Wikipedia を読ませても残る形式の崩れ（多文構成など）がそのまま入る。
-貯まった候補は手が空いたときに Claude Code で「候補をレビューして」と頼んで処理する。
 
 ## テスト
 
