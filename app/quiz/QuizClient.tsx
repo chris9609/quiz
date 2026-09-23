@@ -5,16 +5,7 @@ import { useRouter } from "next/navigation";
 import { type Quiz } from "@/lib/quizData";
 import { calculateScore } from "@/lib/score";
 import { isCorrectAnswer } from "@/lib/answerCheck";
-
-type QuizResult = {
-  question: string;
-  answer: string;
-  userAnswer: string;
-  correct: boolean;
-  charsShown: number;
-  totalChars: number;
-  score: number;
-};
+import { type QuizResult, saveQuizResults } from "@/lib/quizResults";
 
 type Phase = "revealing" | "answering" | "feedback";
 
@@ -115,6 +106,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     if (nextIndex >= questions.length) {
       const totalScore = results.reduce((s, r) => s + r.score, 0);
       const correctCount = results.filter((r) => r.correct).length;
+      saveQuizResults(results);
       router.push(
         `/result?score=${totalScore}&correct=${correctCount}&total=${questions.length}`
       );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MAX_SCORE_PER_QUESTION, QUESTIONS_PER_GAME } from "@/lib/score";
+import ResultList from "./ResultList";
 
 type Props = {
   searchParams: Promise<{ score?: string; correct?: string; total?: string }>;
@@ -78,6 +79,8 @@ export default async function ResultPage({ searchParams }: Props) {
             />
           </div>
         </div>
+
+        <ResultList />
 
         {/* Actions */}
         <div className="flex flex-col gap-3">
