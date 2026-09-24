@@ -12,11 +12,14 @@ create table if not exists quizzes (
   created_at       timestamptz not null default now()
 );
 
--- 匿名ユーザーには読み取りだけ許可する（書き込みは service_role のみ）
+-- ログイン済みユーザーには読み取りだけ許可する（書き込みは service_role のみ）。
+-- 匿名（公開キーだけ）で読むとエラーではなく空配列が返る。
+-- ログインは招待制（Supabase Auth の新規登録はオフ、管理画面で追加した人だけ）。
 alter table quizzes enable row level security;
 
 drop policy if exists "quizzes are readable by anyone" on quizzes;
-create policy "quizzes are readable by anyone"
+drop policy if exists "quizzes are readable by signed-in users" on quizzes;
+create policy "quizzes are readable by signed-in users"
   on quizzes for select
-  to anon, authenticated
+  to authenticated
   using (true);

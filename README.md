@@ -24,6 +24,17 @@
 
 ## 設計上のポイント
 
+### ログイン（招待制）
+
+Supabase Auth のマジックリンクでログインする。新規登録はオフにしてあり、
+管理画面（Authentication → Users → Add user → Create new user、Auto Confirm にチェック）で追加した人だけが入れる。
+
+- `proxy.ts` が全ページの手前で通行証（cookie）を確認し、未ログインなら `/login` へ飛ばす
+- 本当の守りは RLS。`quizzes` はログイン済みのときだけ読める（`supabase/schema.sql`）
+- `/auth/confirm` がメールのリンクの着地点。標準テンプレートの `?code=`（PKCE）と、自前テンプレートの `?token_hash=` の両方を受け付ける。
+  PKCE はリンクを要求したのと同じブラウザでしか開けない（スマホの Gmail アプリ内ブラウザで失敗する）。
+  テンプレートの編集には Custom SMTP の設定が要るので、スマホで使う前に設定して token_hash 方式に切り替える
+
 ### 日本語の答え合わせ
 
 単純な文字列一致だと「内村航平」に対して「うちむらこうへい」が不正解になり、
@@ -60,14 +71,18 @@ DB の `accepted_answers` 配列に別解として持たせている。
 **無料プランのプロジェクトは 7 日間クエリが無いと一時停止され、停止から 90 日で復元不可、やがて削除される。**
 このプロジェクトは実際に一度これで消えている（2026年5月〜9月の放置）。
 
-`scripts/keepalive.sh` を cron で毎日回して、軽いクエリを 1 本投げることで防ぐ。
+専用の keepalive は持たない。停止の判定はテーブル単位ではなくプロジェクト単位で、
+このプロジェクトには毎日 DB に触る処理が複数ある。
 
-問題を投入する `import_approved.py` も起動時に必ず DB を読むので同じ効果があるが、
-そちらは生成パイプラインが壊れると動かなくなる。**独立して動く保険として keepalive を別に持つ。**
+- 夜間バッチの `import_approved.py`（起動時に必ず DB を読む）
+- 同じプロジェクトに同居している shogi-analyzer / screentime の日次書き込み
+
+どれも同じ Mac で動くので、Mac を 1 週間以上止めるときは出発前にダッシュボードを開いておく。
+（以前は `scripts/keepalive.sh` を持っていたが、同じ Mac で動く以上は保険にならないので削除した）
 
 > GitHub Actions で ping する方法もよく紹介されるが、
 > **Actions の `schedule` は 60 日コミットが無いと自動停止する**ので、
-> 放置プロジェクトの延命目的だと ping 側が先に死ぬ。ローカル cron のほうが確実。
+> 放置プロジェクトの延命目的だと ping 側が先に死ぬ。
 
 ## 問題を増やす仕組み
 
@@ -145,7 +160,7 @@ LaunchAgent は GUI セッション内で動くので通る。ターミナルで
 launchd の環境変数もほぼ空で、`USER` が無くても "Not logged in" になるので `quiz.sh` で export している。
 スリープ中に5時を過ぎた場合、cron はその回を飛ばすが launchd は復帰時に実行する。
 
-投入には `SUPABASE_SECRET_KEY` が必要（RLS で匿名の書き込みを塞いでいるため）。
+投入にも重複チェックの読み取りにも `SUPABASE_SECRET_KEY` が必要（RLS で匿名の読み書きを塞いでいるため。匿名で読むとエラーにならず 0 件が返るので要注意）。
 鍵はこのリポジトリには置かず、他プロジェクトと同じく `~/claude/application/MCP/.env` の
 `SUPABASE_URL` / `SUPABASE_SECRET_KEY` を借りる（URL が一致するときだけ使う）。
 `.env.local` に置くのは Next.js が読む公開キーだけ。`NEXT_PUBLIC_` 付きで Secret key を書くとブラウザに配信されるので絶対にしない。
@@ -167,7 +182,7 @@ npm install
 SQL Editor で以下の順に実行する。
 
 ```
-supabase/schema.sql   # テーブル定義 + RLS（匿名は読み取りのみ）
+supabase/schema.sql   # テーブル定義 + RLS（ログイン済みのみ読み取り可）
 supabase/seed.sql     # 問題データ 34 問
 ```
 
@@ -194,13 +209,6 @@ npm run dev    # http://localhost:3000
 # ~/Library/LaunchAgents/com.chris.quiz-nightly.plist を置いてから（StartCalendarInterval で Hour 5 / Minute 0、~/cron/quiz.sh を bash で起動）
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.chris.quiz-nightly.plist
 launchctl kickstart gui/$(id -u)/com.chris.quiz-nightly   # 今すぐ1回動かして確かめる
-```
-
-keepalive は `claude -p` を使わないので cron でよい。
-
-```
-# 毎日: Supabase の一時停止を防ぐ
-30 7 * * * /path/to/quiz/scripts/keepalive.sh >> ~/cron/logs/quiz-keepalive.log 2>&1
 ```
 
 ## テスト

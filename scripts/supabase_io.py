@@ -1,9 +1,9 @@
 """
 Supabase への読み書き（標準ライブラリのみ）。
 
-キーの使い分け:
-  読み取り  … NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY（ブラウザにも配られる公開キー）
-  書き込み  … SUPABASE_SECRET_KEY（RLSを迂回する管理者キー。サーバ側専用）
+キーは読み書きとも SUPABASE_SECRET_KEY（RLSを迂回する管理者キー。サーバ側専用）。
+quizzes の読み取りは RLS で「ログイン済みのみ」にしてあり、公開キーで読むと
+エラーにならず空配列が返る（＝重複チェックが黙って素通りになる）ので、読み取りにも公開キーは使わない。
 
 SUPABASE_SECRET_KEY には NEXT_PUBLIC_ を付けないこと。
 付けるとNext.jsがブラウザに埋め込んでしまい、誰でもDBを書き換えられるようになる。
@@ -53,10 +53,6 @@ def _request(path: str, key: str, method: str = "GET", body=None, extra_headers=
         return json.loads(raw) if raw else None
 
 
-def _publishable_key() -> str:
-    return load_env()["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]
-
-
 def _secret_key() -> str:
     if not MCP_ENV_FILE.exists():
         raise RuntimeError(f"{MCP_ENV_FILE} がありません")
@@ -73,8 +69,8 @@ def _secret_key() -> str:
 
 
 def fetch_existing_answers() -> set[str]:
-    """既存問題の答え一覧（重複チェック用）。読み取りなので公開キーで足りる"""
-    rows = _request("quizzes?select=answer", _publishable_key())
+    """既存問題の答え一覧（重複チェック用）"""
+    rows = _request("quizzes?select=answer", _secret_key())
     return {r["answer"] for r in rows}
 
 
