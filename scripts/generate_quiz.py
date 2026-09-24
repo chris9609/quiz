@@ -16,7 +16,8 @@ import re
 import sys
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -24,6 +25,8 @@ from wikipedia_source import pick_articles  # noqa: E402
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CANDIDATES_FILE = BASE_DIR / "data" / "candidates.json"
+# 夜間バッチ（朝5時）の時刻がそのまま読めるよう、UTCではなく日本時間で記録する
+JST = ZoneInfo("Asia/Tokyo")
 
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_MODEL = "gemma4:e4b"
@@ -175,7 +178,7 @@ def main() -> None:
             "source_title": art["title"],
             "source_url": art["url"],
             "model": OLLAMA_MODEL,
-            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "generated_at": datetime.now(JST).isoformat(timespec="seconds"),
             "status": "pending",
         })
         known.add(item["answer"].strip())
