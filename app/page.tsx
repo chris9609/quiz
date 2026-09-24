@@ -1,8 +1,24 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { signOut } from "./login/actions";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+  const email = data?.claims.email;
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100">
+    <div className="relative flex flex-1 flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100">
+      <form action={signOut} className="absolute top-4 right-4 flex items-center gap-3 text-sm">
+        {email && <span className="text-indigo-700">{email}</span>}
+        <button
+          type="submit"
+          className="bg-white hover:bg-gray-50 text-indigo-700 px-4 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-colors"
+        >
+          ログアウト
+        </button>
+      </form>
+
       <div className="text-center space-y-8 p-8">
         <div className="space-y-3">
           <h1 className="text-5xl font-bold text-indigo-900">⚡ 早押しクイズ</h1>

@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { createClient } from './supabase/server'
 import { QUESTIONS_PER_GAME } from './score'
 
 export type Quiz = {
@@ -24,6 +24,7 @@ function shuffle<T>(items: T[]): T[] {
  * Postgres 側で order by random() する RPC に切り替えること。
  */
 export async function getQuizzes(limit = QUESTIONS_PER_GAME): Promise<Quiz[]> {
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('quizzes')
     .select('id, question, answer, accepted_answers')
