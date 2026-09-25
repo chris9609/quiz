@@ -173,6 +173,13 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
         <div className="bg-white rounded-2xl shadow-lg p-8 min-h-[160px] flex items-center justify-center">
           <p className="text-2xl font-semibold text-gray-800 text-center leading-relaxed">
             {displayedText}
+            {/* 回答後は振り返れるよう全文を出す。押した位置に / を入れ、未表示だった部分は薄くする */}
+            {phase === "feedback" && charsShown < currentQuiz.question.length && (
+              <>
+                <span className="mx-1 text-indigo-400 font-bold">/</span>
+                <span className="text-gray-400">{currentQuiz.question.slice(charsShown)}</span>
+              </>
+            )}
             {phase === "revealing" && (
               <span className="inline-block w-0.5 h-6 bg-indigo-500 ml-0.5 animate-pulse align-middle" />
             )}

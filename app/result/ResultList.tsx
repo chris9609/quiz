@@ -103,7 +103,12 @@ export default function ResultList() {
             </div>
             <p className="text-gray-800 leading-relaxed">
               {r.question.slice(0, r.charsShown)}
-              <span className="text-gray-400">{r.question.slice(r.charsShown)}</span>
+              {r.charsShown < r.question.length && (
+                <>
+                  <span className="mx-1 text-indigo-400 font-bold">/</span>
+                  <span className="text-gray-400">{r.question.slice(r.charsShown)}</span>
+                </>
+              )}
             </p>
             <p className="text-sm text-gray-600">
               正解: <span className="font-bold text-gray-800">{r.answer}</span>
@@ -125,7 +130,7 @@ export default function ResultList() {
           </li>
         ))}
       </ol>
-      <p className="text-xs text-gray-400">薄い文字は、押した時点でまだ表示されていなかった部分です</p>
+      <p className="text-xs text-gray-400">「/」から後の薄い文字は、押した時点でまだ表示されていなかった部分です</p>
     </div>
   );
 }
