@@ -13,6 +13,7 @@ SUPABASE_SECRET_KEY はこのリポジトリには置かず、他プロジェク
 """
 import json
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -92,6 +93,21 @@ def insert_quizzes(items: list[dict]) -> int:
     _request("quizzes", _secret_key(), method="POST", body=payload,
              extra_headers={"Prefer": "return=minimal"})
     return len(payload)
+
+
+def fetch_pending_anki_requests() -> list[dict]:
+    """アプリの「+ Anki」で記録され、まだ Anki に入れていない問題（古い順）"""
+    return _request(
+        "anki_requests?added_at=is.null&order=created_at"
+        "&select=id,quizzes(question,answer,accepted_answers)",
+        _secret_key(),
+    )
+
+
+def mark_anki_added(request_id: int) -> None:
+    """Anki に入れ終わった記録に added_at を付ける（次回から拾わない）"""
+    _request(f"anki_requests?id=eq.{request_id}", _secret_key(), method="PATCH",
+             body={"added_at": datetime.now(timezone.utc).isoformat()}, extra_headers={"Prefer": "return=minimal"})
 
 
 if __name__ == "__main__":

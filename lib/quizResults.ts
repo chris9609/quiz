@@ -3,6 +3,8 @@
  * （スコアなどの集計値は URL で渡しているが、10 問分の本文は URL に載せるには長すぎる）。
  */
 export type QuizResult = {
+  /** Anki ボタン用。この項目を足す前に保存された結果には無い */
+  quizId?: string
   question: string
   answer: string
   userAnswer: string

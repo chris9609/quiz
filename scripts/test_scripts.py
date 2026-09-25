@@ -7,6 +7,7 @@ scripts/ の Python スクリプトのテスト。
   実際に落とし損ねた生成物をそのまま固定して、ルールをいじったときの退行を止める
 - apply_reviews(): 無人実行で候補ファイルを壊さないためのガードを固定する
 - build_prompt(): 出典取得はモックして、ネットワークなしで動かす
+- export_anki: カードの中身（HTML エスケープ・別解）と、重複エラーの扱いを固定する
 """
 import json
 import sys
@@ -16,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from generate_quiz import validate  # noqa: E402
 from review_with_claude import apply_reviews, build_prompt, parse_reviews  # noqa: E402
+from export_anki import build_note, format_back, is_duplicate_error  # noqa: E402
 
 
 # ============================================================ validate()
@@ -263,6 +265,31 @@ class TestBuild(unittest.TestCase):
         prompt, skipped = build_prompt([prompt_cand("水星")], get_extract=lambda t: "   ")
         self.assertEqual(prompt, "")
         self.assertEqual(skipped, ["水星"])
+
+
+# ============================================================ export_anki
+
+class TestExportAnki(unittest.TestCase):
+    def test_別解は括弧でまとめる(self):
+        self.assertEqual(format_back("水星", ["すいせい", "マーキュリー"]), "水星（すいせい／マーキュリー）")
+
+    def test_別解なしや答えと同じ別解は答えだけ(self):
+        self.assertEqual(format_back("水星", []), "水星")
+        self.assertEqual(format_back("水星", None), "水星")
+        self.assertEqual(format_back("水星", ["水星"]), "水星")
+
+    def test_フィールドはHTMLエスケープする(self):
+        # Anki のフィールドは HTML として表示されるので、< や & が崩れないようにする
+        note = build_note({"question": "A<B & C は？", "answer": "<D>", "accepted_answers": []},
+                          "基本", ["表面", "裏面"])
+        self.assertEqual(note["fields"], {"表面": "A&lt;B &amp; C は？", "裏面": "&lt;D&gt;"})
+        self.assertEqual(note["modelName"], "基本")
+        self.assertFalse(note["options"]["allowDuplicate"])
+
+    def test_重複エラーだけを追加済み扱いにする(self):
+        self.assertTrue(is_duplicate_error(RuntimeError(
+            "AnkiConnect エラー（addNote）: cannot create note because it is a duplicate")))
+        self.assertFalse(is_duplicate_error(RuntimeError("AnkiConnect エラー（addNote）: deck was not found")))
 
 
 if __name__ == "__main__":

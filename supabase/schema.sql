@@ -23,3 +23,31 @@ create policy "quizzes are readable by signed-in users"
   on quizzes for select
   to authenticated
   using (true);
+
+-- Anki に入れたい問題の記録。アプリの「+ Anki」ボタンが1行ずつ足し、
+-- Mac 上の scripts/export_anki.py（secret key）が AnkiConnect へ入れて added_at を埋める。
+-- デプロイ先から localhost の AnkiConnect には届かないので、DB に希望を残してローカルで拾う分担。
+create table if not exists anki_requests (
+  id          bigint generated always as identity primary key,
+  quiz_id     uuid not null references quizzes(id) on delete cascade,
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  added_at    timestamptz,               -- Anki に入れ終わった時刻。null = 未投入
+  unique (quiz_id, user_id)              -- 同じ問題を何度押しても1件
+);
+
+-- 読み書きできるのは管理者（自分）だけ。招待した友達は解けるが Anki には入れられない。
+-- <自分のUID> は Authentication → Users の自分の行の UID に置き換える。
+alter table anki_requests enable row level security;
+
+drop policy if exists "owner can read own anki requests" on anki_requests;
+create policy "owner can read own anki requests"
+  on anki_requests for select
+  to authenticated
+  using (user_id = (select auth.uid()) and (select auth.uid()) = '<自分のUID>');
+
+drop policy if exists "owner can request anki cards" on anki_requests;
+create policy "owner can request anki cards"
+  on anki_requests for insert
+  to authenticated
+  with check (user_id = (select auth.uid()) and (select auth.uid()) = '<自分のUID>');

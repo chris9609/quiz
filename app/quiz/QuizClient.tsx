@@ -86,6 +86,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       : 0;
 
     const result: QuizResult = {
+      quizId: currentQuiz.id,
       question: currentQuiz.question,
       answer: currentQuiz.answer,
       userAnswer: trimmed,
