@@ -31,7 +31,6 @@ export default async function Home() {
             <li>📖 問題文が1文字ずつ表示されます</li>
             <li>⌨️ わかった瞬間に <kbd className="px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs font-mono">Enter</kbd> を押してください</li>
             <li>✍️ 回答を入力して送信します</li>
-            <li>🏆 少ない文字数で正解するほど高得点！</li>
           </ul>
         </div>
 
