@@ -93,14 +93,9 @@ export default function ResultList() {
       <ol className="space-y-4">
         {results.map((r, i) => (
           <li key={i} className="border-b border-gray-100 last:border-b-0 pb-4 last:pb-0 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-500">
-                {r.correct ? "⭕" : "❌"} 第{i + 1}問
-              </span>
-              <span className={`text-sm font-bold ${r.correct ? "text-green-700" : "text-gray-400"}`}>
-                {r.correct ? `+${r.score} 点` : "0 点"}
-              </span>
-            </div>
+            <span className="text-sm font-medium text-gray-500">
+              {r.correct ? "⭕" : "❌"} 第{i + 1}問
+            </span>
             <p className="text-gray-800 leading-relaxed">
               {r.question.slice(0, r.charsShown)}
               {r.charsShown < r.question.length && (

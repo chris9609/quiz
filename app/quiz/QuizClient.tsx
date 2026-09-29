@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { type Quiz } from "@/lib/quizData";
-import { calculateScore } from "@/lib/score";
 import { isCorrectAnswer } from "@/lib/answerCheck";
 import { type QuizResult, saveQuizResults } from "@/lib/quizResults";
 
@@ -21,7 +20,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const [charsShown, setCharsShown] = useState(0);
   const [phase, setPhase] = useState<Phase>("revealing");
   const [userAnswer, setUserAnswer] = useState("");
-  const [lastResult, setLastResult] = useState<{ correct: boolean; score: number; answer: string } | null>(null);
+  const [lastResult, setLastResult] = useState<{ correct: boolean; answer: string } | null>(null);
   const [results, setResults] = useState<QuizResult[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,9 +80,6 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       currentQuiz.answer,
       currentQuiz.accepted_answers
     );
-    const score = correct
-      ? calculateScore(currentQuiz.question.length, charsShown)
-      : 0;
 
     const result: QuizResult = {
       quizId: currentQuiz.id,
@@ -93,11 +89,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
       correct,
       charsShown,
       totalChars: currentQuiz.question.length,
-      score,
     };
 
     feedbackAtRef.current = Date.now();
-    setLastResult({ correct, score, answer: currentQuiz.answer });
+    setLastResult({ correct, answer: currentQuiz.answer });
     setResults((prev) => [...prev, result]);
     setPhase("feedback");
   };
@@ -105,11 +100,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const nextQuestion = useCallback(() => {
     const nextIndex = questionIndex + 1;
     if (nextIndex >= questions.length) {
-      const totalScore = results.reduce((s, r) => s + r.score, 0);
       const correctCount = results.filter((r) => r.correct).length;
       saveQuizResults(results);
       router.push(
-        `/result?score=${totalScore}&correct=${correctCount}&total=${questions.length}`
+        `/result?correct=${correctCount}&total=${questions.length}`
       );
       return;
     }
@@ -240,11 +234,6 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             <p className="text-center text-gray-600">
               正解: <span className="font-bold text-gray-800">{lastResult.answer}</span>
             </p>
-            {lastResult.correct && (
-              <p className="text-center text-green-700 font-semibold text-lg">
-                +{lastResult.score} 点
-              </p>
-            )}
             <div className="text-center">
               <button
                 onClick={nextQuestion}

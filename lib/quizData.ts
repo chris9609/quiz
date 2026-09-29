@@ -1,5 +1,4 @@
 import { createClient } from './supabase/server'
-import { QUESTIONS_PER_GAME } from './score'
 
 export type Quiz = {
   id: string
@@ -7,6 +6,9 @@ export type Quiz = {
   answer: string
   accepted_answers: string[]
 }
+
+/** 1プレイあたりの出題数 */
+export const QUESTIONS_PER_GAME = 10
 
 /** Fisher-Yates シャッフル（引数は破壊しない） */
 function shuffle<T>(items: T[]): T[] {
