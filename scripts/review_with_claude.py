@@ -50,8 +50,9 @@ RUBRIC_FILE = BASE_DIR / "scripts" / "review_rubric.md"
 WORK_DIR = Path(tempfile.gettempdir()) / "quiz_review"
 
 CLAUDE_BIN = os.environ.get("CLAUDE_BIN", str(Path.home() / ".local/bin/claude"))
-# 3問で約2分。夜間バッチで claude が固まっても後続プロジェクトを道連れにしないための上限
-CLAUDE_TIMEOUT_SEC = 900
+# 3問で約2分。夜間バッチで claude が固まっても後続プロジェクトを道連れにしないための上限。
+# GENERATE_COUNT=30 で1回25件前後をまとめて判定するので、余裕を見て30分
+CLAUDE_TIMEOUT_SEC = 1800
 VALID_STATUSES = {"approved", "rejected"}
 REVIEWER = "claude"
 
