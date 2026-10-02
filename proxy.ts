@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-/** ログインしていなくても開けるパス（ログイン画面と、マジックリンクの着地点） */
-const PUBLIC_PATHS = ['/login', '/auth']
+/** ログインしていなくても開けるパス（ログイン画面、マジックリンクの着地点、スマホの早押しボタン） */
+const PUBLIC_PATHS = ['/login', '/auth', '/buzzer']
 
 /**
  * 全ページの手前で動き、

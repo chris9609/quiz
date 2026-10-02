@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { type Quiz } from "@/lib/quizData";
 import { isCorrectAnswer } from "@/lib/answerCheck";
 import { type QuizResult, saveQuizResults } from "@/lib/quizResults";
+import BuzzerQr from "./BuzzerQr";
+import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
 
 type Phase = "revealing" | "answering" | "feedback";
 
@@ -114,6 +116,11 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     setLastResult(null);
     setPhase("revealing");
   }, [questionIndex, questions.length, results, router]);
+
+  // スマホの早押しボタン。効くのは出題中だけ（Enter と同じく表示を止める）
+  const buzzer = useBuzzerRoom(() => {
+    if (phase === "revealing") stopRevealing();
+  });
 
   // Enter: 出題中は表示を止める / 正誤表示中は次の問題へ
   useEffect(() => {
@@ -245,6 +252,8 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             </div>
           </div>
         )}
+
+        {buzzer.url && <BuzzerQr url={buzzer.url} onNewRoom={buzzer.newRoom} />}
       </div>
     </div>
   );
