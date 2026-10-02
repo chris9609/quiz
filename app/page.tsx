@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./login/actions";
+import BuzzerPairing from "./BuzzerPairing";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -30,9 +31,12 @@ export default async function Home() {
           <ul className="space-y-2 text-gray-600 text-sm">
             <li>📖 問題文が1文字ずつ表示されます</li>
             <li>⌨️ わかった瞬間に <kbd className="px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs font-mono">Enter</kbd> を押してください</li>
+            <li>📱 スマホを早押しボタンにすることもできます</li>
             <li>✍️ 回答を入力して送信します</li>
           </ul>
         </div>
+
+        <BuzzerPairing />
 
         <Link
           href="/quiz"

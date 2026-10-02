@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { type Quiz } from "@/lib/quizData";
 import { isCorrectAnswer } from "@/lib/answerCheck";
 import { type QuizResult, saveQuizResults } from "@/lib/quizResults";
-import BuzzerQr from "./BuzzerQr";
 import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
 
 type Phase = "revealing" | "answering" | "feedback";
@@ -253,7 +252,9 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           </div>
         )}
 
-        {buzzer.url && <BuzzerQr url={buzzer.url} onNewRoom={buzzer.newRoom} />}
+        {buzzer.phoneCount > 0 && (
+          <p className="text-center text-xs text-green-600">📱 スマホの早押しボタンとつながっています</p>
+        )}
       </div>
     </div>
   );

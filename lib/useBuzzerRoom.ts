@@ -2,16 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, buzzerChannelName } from "@/lib/buzzer";
+import { BUZZ_EVENT, buzzerChannelName, countRole } from "@/lib/buzzer";
 
 const ROOM_STORAGE_KEY = "buzzerRoom";
 
-/** 部屋番号は毎回 QR を読み直さなくて済むよう、ブラウザに覚えておく */
+/**
+ * 部屋番号は毎回 QR を読み直さなくて済むよう、ブラウザに覚えておく。
+ * トップページでつないだ部屋を、そのままクイズ画面でも使うためでもある。
+ */
 function loadOrCreateRoom() {
   try {
     const saved = localStorage.getItem(ROOM_STORAGE_KEY);
     if (saved) return saved;
   } catch {}
+  return saveNewRoom();
+}
+
+function saveNewRoom() {
   // 推測されると他人が押せてしまうので、連番ではなく UUID にする
   const room = crypto.randomUUID();
   try {
@@ -21,16 +28,18 @@ function loadOrCreateRoom() {
 }
 
 /**
- * スマホからの「押した」を受け取り、onBuzz を呼ぶ。url はスマホで開く URL。
+ * PC 側から早押しの部屋に入る。
+ *   url:        スマホで開く URL（QR にする）
+ *   phoneCount: 部屋にいるスマホの数（Presence で数える）
+ *   newRoom:    部屋を作り直す（面接デモなどで他人に渡した QR を無効にしたいとき）
  *
  * onBuzz は phase などで毎回作り直されるが、そのたびにチャンネルへ入り直すと
  * 入り直しの隙間に押された合図を取りこぼす。チャンネルは部屋ごとに1回だけ作り、
  * 最新の onBuzz は ref 経由で呼ぶ。
- *
- * newRoom: 部屋を作り直す（面接デモなどで他人に渡した QR を無効にしたいとき）
  */
-export function useBuzzerRoom(onBuzz: () => void) {
+export function useBuzzerRoom(onBuzz?: () => void) {
   const [room, setRoom] = useState<string | null>(null);
+  const [phoneCount, setPhoneCount] = useState(0);
   const onBuzzRef = useRef(onBuzz);
 
   useEffect(() => {
@@ -46,23 +55,22 @@ export function useBuzzerRoom(onBuzz: () => void) {
   useEffect(() => {
     if (!room) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(buzzerChannelName(room))
-      .on("broadcast", { event: BUZZ_EVENT }, () => onBuzzRef.current())
-      .subscribe();
+    const channel = supabase.channel(buzzerChannelName(room));
+    channel
+      .on("broadcast", { event: BUZZ_EVENT }, () => onBuzzRef.current?.())
+      .on("presence", { event: "sync" }, () => setPhoneCount(countRole(channel, "buzzer")))
+      .subscribe((status) => {
+        // スマホ側に「PC とつながっている」と見せるため、自分も名乗っておく
+        if (status === "SUBSCRIBED") channel.track({ role: "host" });
+      });
     return () => {
+      setPhoneCount(0);
       supabase.removeChannel(channel);
     };
   }, [room]);
 
-  const newRoom = () => {
-    const next = crypto.randomUUID();
-    try {
-      localStorage.setItem(ROOM_STORAGE_KEY, next);
-    } catch {}
-    setRoom(next);
-  };
+  const newRoom = () => setRoom(saveNewRoom());
 
   const url = room ? `${window.location.origin}/buzzer?room=${room}` : null;
-  return { url, newRoom };
+  return { url, phoneCount, newRoom };
 }
