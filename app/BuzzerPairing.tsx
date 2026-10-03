@@ -1,39 +1,45 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
 
 /**
- * トップページで、ゲームを始める前にスマホを早押しボタンとしてつないでおく。
+ * トップページの「スマホをボタンにして」カード。ゲームを始める前にスマホをつないでおく。
+ * つながる前に始めると押しても反応せず戸惑うので、つながるまでスタートは押せない。
  * このページはログインした人にしか見えず、部屋はブラウザごとに別なので、
  * QR を他の利用者に見られることはない。
  */
 export default function BuzzerPairing() {
   const { url, phoneCount, newRoom } = useBuzzerRoom();
   const [open, setOpen] = useState(false);
-
-  if (!url) return null;
+  const connected = phoneCount > 0;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 max-w-md mx-auto space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="font-semibold text-gray-700 text-lg">📱 スマホを早押しボタンに</h2>
-        {phoneCount > 0 ? (
-          <span className="text-sm font-medium text-green-600">● つながりました</span>
+    <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4 text-left">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold text-indigo-900">📱 スマホをボタンにして</h2>
+          <p className="text-sm text-gray-500">スマホの画面全体が早押しボタンになります</p>
+        </div>
+        {connected ? (
+          <span className="shrink-0 text-sm font-medium text-green-600">● つながりました</span>
         ) : (
-          <span className="text-sm text-gray-400">○ 未接続</span>
+          <span className="shrink-0 text-sm text-gray-400">○ 未接続</span>
         )}
       </div>
 
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="text-sm text-indigo-500 hover:text-indigo-700 underline"
-      >
-        {open ? "QR コードを閉じる ▲" : "QR コードを表示 ▼"}
-      </button>
+      {url && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="self-start text-sm text-indigo-500 hover:text-indigo-700 underline"
+        >
+          {open ? "QR コードを閉じる ▲" : connected ? "QR コードを表示 ▼" : "スマホをつなぐ ▼"}
+        </button>
+      )}
 
-      {open && (
+      {url && open && (
         <div className="flex flex-col items-center gap-3">
           <p className="text-sm text-gray-500">スマホのカメラで読み取ってください（ログイン不要）</p>
           <QRCodeSVG value={url} size={180} />
@@ -45,6 +51,25 @@ export default function BuzzerPairing() {
           </button>
         </div>
       )}
+
+      <div className="mt-auto pt-2 text-center">
+        {connected ? (
+          <Link
+            href="/quiz"
+            className="inline-block bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xl px-12 py-4 rounded-full shadow-lg transition-all duration-150 hover:shadow-xl hover:-translate-y-0.5"
+          >
+            スタート！
+          </Link>
+        ) : (
+          <span
+            aria-disabled="true"
+            className="inline-block bg-gray-200 text-gray-400 font-bold text-xl px-12 py-4 rounded-full cursor-not-allowed"
+          >
+            スタート！
+          </span>
+        )}
+        {!connected && <p className="mt-2 text-xs text-gray-400">スマホがつながると押せます</p>}
+      </div>
     </div>
   );
 }
