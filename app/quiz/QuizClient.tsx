@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type Quiz } from "@/lib/quizData";
 import { isCorrectAnswer } from "@/lib/answerCheck";
@@ -151,6 +152,10 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100 p-4">
       <div className="w-full max-w-2xl space-y-6">
+        <Link href="/" className="inline-block text-sm text-indigo-500 hover:text-indigo-700">
+          ← トップに戻る
+        </Link>
+
         {/* Progress */}
         <div className="space-y-1">
           <div className="flex justify-between text-sm text-indigo-700 font-medium">
