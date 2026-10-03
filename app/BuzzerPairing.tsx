@@ -43,9 +43,6 @@ export default function BuzzerPairing() {
         <div className="flex flex-col items-center gap-3">
           <p className="text-sm text-gray-500">スマホのカメラで読み取ってください（ログイン不要）</p>
           <QRCodeSVG value={url} size={180} />
-          <a href={url} target="_blank" className="max-w-[260px] break-all text-xs text-gray-400 underline">
-            {url}
-          </a>
           <button onClick={newRoom} className="text-xs text-gray-500 hover:text-gray-700 underline">
             新しい部屋を作る（前の QR は使えなくなります）
           </button>
