@@ -71,6 +71,19 @@ export function useBuzzerRoom(onBuzz?: () => void) {
 
   const newRoom = () => setRoom(saveNewRoom());
 
-  const url = room ? `${window.location.origin}/buzzer?room=${room}` : null;
+  const url = room ? `${phoneOrigin()}/buzzer?room=${room}` : null;
   return { url, phoneCount, newRoom };
+}
+
+/**
+ * スマホから開ける origin。PC で localhost を開いていると QR も localhost になり
+ * スマホから届かないので、開発中は Mac の LAN 内 IP に差し替える。
+ */
+function phoneOrigin(): string {
+  const { protocol, hostname, port, origin } = window.location;
+  const lanHost = process.env.NEXT_PUBLIC_DEV_LAN_HOST;
+  if (hostname === "localhost" && lanHost) {
+    return `${protocol}//${lanHost}${port ? `:${port}` : ""}`;
+  }
+  return origin;
 }
