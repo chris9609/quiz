@@ -18,15 +18,23 @@ export default function BuzzerPairing() {
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4 text-left">
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-indigo-900">📱 スマホをボタンにして</h2>
-          <p className="text-sm text-gray-500">スマホの画面全体が早押しボタンになります</p>
-        </div>
+      <div className="space-y-1">
+        <h2 className="text-2xl font-bold text-indigo-900">📱 スマホをボタンにして</h2>
+        <p className="text-sm text-gray-500">スマホの画面全体が早押しボタンになります</p>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-gray-500">参加者</p>
         {connected ? (
-          <span className="text-right text-sm font-medium text-green-600">● {phoneNames.join("、")} がつながりました</span>
+          <ul className="flex flex-wrap gap-2">
+            {phoneNames.map((name, i) => (
+              <li key={i} className="rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700">
+                ● {name}
+              </li>
+            ))}
+          </ul>
         ) : (
-          <span className="shrink-0 text-sm text-gray-400">○ 未接続</span>
+          <p className="text-sm text-gray-400">まだいません</p>
         )}
       </div>
 
