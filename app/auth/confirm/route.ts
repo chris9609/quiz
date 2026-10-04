@@ -9,8 +9,8 @@ import { createClient } from '@/lib/supabase/server'
  *   ?token_hash=...&type=email      自前テンプレート（{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email）
  *
  * PKCE はリンクを要求したのと同じブラウザでしか開けず、スマホの Gmail アプリ内ブラウザ等で失敗する。
- * テンプレート編集には Custom SMTP が必要なので、今は標準テンプレート（PKCE）で動かしている。
- * スマホで使う前に SMTP を設定して token_hash 方式に切り替えること。
+ * そのため Custom SMTP（Gmail）を設定し、Magic Link テンプレートを token_hash 方式に変えてある。
+ * code 側は標準テンプレートに戻したときのために残している。
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
