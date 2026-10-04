@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, buzzerChannelName, countRole } from "@/lib/buzzer";
+import { BUZZ_EVENT, buzzerChannelName, hasHost } from "@/lib/buzzer";
 
 type Status = "connecting" | "ready" | "error";
 
-export default function BuzzerClient({ room }: { room: string }) {
+export default function BuzzerClient({ room, name }: { room: string; name: string }) {
   const [status, setStatus] = useState<Status>("connecting");
   const [hostOnline, setHostOnline] = useState(false);
   const [pressed, setPressed] = useState(false);
@@ -17,12 +17,12 @@ export default function BuzzerClient({ room }: { room: string }) {
     const supabase = createClient();
     const channel = supabase.channel(buzzerChannelName(room));
     channel
-      .on("presence", { event: "sync" }, () => setHostOnline(countRole(channel, "host") > 0))
+      .on("presence", { event: "sync" }, () => setHostOnline(hasHost(channel)))
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
           setStatus("ready");
-          // PC 側に「スマホがつながった」と見せるために名乗る
-          channel.track({ role: "buzzer" });
+          // PC 側に「誰のスマホがつながったか」を見せるために名乗る
+          channel.track({ role: "buzzer", name });
         } else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
       });
     channelRef.current = channel;
@@ -30,7 +30,7 @@ export default function BuzzerClient({ room }: { room: string }) {
       channelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [room]);
+  }, [room, name]);
 
   // onClick は指を離したときに発火するので遅い。触れた瞬間に送る
   const buzz = () => {

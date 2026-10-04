@@ -257,8 +257,8 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
           </div>
         )}
 
-        {buzzer.phoneCount > 0 && (
-          <p className="text-center text-xs text-green-600">📱 スマホの早押しボタンとつながっています</p>
+        {buzzer.phoneNames.length > 0 && (
+          <p className="text-center text-xs text-green-600">📱 {buzzer.phoneNames.join("、")}</p>
         )}
       </div>
     </div>

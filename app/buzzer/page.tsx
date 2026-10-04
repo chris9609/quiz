@@ -1,4 +1,4 @@
-import BuzzerClient from "./BuzzerClient";
+import BuzzerEntry from "./BuzzerEntry";
 
 type Props = {
   searchParams: Promise<{ room?: string }>;
@@ -19,5 +19,5 @@ export default async function BuzzerPage({ searchParams }: Props) {
     );
   }
 
-  return <BuzzerClient room={room} />;
+  return <BuzzerEntry room={room} />;
 }

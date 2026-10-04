@@ -12,9 +12,9 @@ import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
  * QR を他の利用者に見られることはない。
  */
 export default function BuzzerPairing() {
-  const { url, phoneCount, newRoom } = useBuzzerRoom();
+  const { url, phoneNames, newRoom } = useBuzzerRoom();
   const [open, setOpen] = useState(false);
-  const connected = phoneCount > 0;
+  const connected = phoneNames.length > 0;
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4 text-left">
@@ -24,7 +24,7 @@ export default function BuzzerPairing() {
           <p className="text-sm text-gray-500">スマホの画面全体が早押しボタンになります</p>
         </div>
         {connected ? (
-          <span className="shrink-0 text-sm font-medium text-green-600">● つながりました</span>
+          <span className="text-right text-sm font-medium text-green-600">● {phoneNames.join("、")} がつながりました</span>
         ) : (
           <span className="shrink-0 text-sm text-gray-400">○ 未接続</span>
         )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, buzzerChannelName, countRole } from "@/lib/buzzer";
+import { BUZZ_EVENT, buzzerChannelName, buzzerNames } from "@/lib/buzzer";
 
 const ROOM_STORAGE_KEY = "buzzerRoom";
 
@@ -30,7 +30,7 @@ function saveNewRoom() {
 /**
  * PC 側から早押しの部屋に入る。
  *   url:        スマホで開く URL（QR にする）
- *   phoneCount: 部屋にいるスマホの数（Presence で数える）
+ *   phoneNames: 部屋にいるスマホの名前（Presence で受け取る）
  *   newRoom:    部屋を作り直す（面接デモなどで他人に渡した QR を無効にしたいとき）
  *
  * onBuzz は phase などで毎回作り直されるが、そのたびにチャンネルへ入り直すと
@@ -39,7 +39,7 @@ function saveNewRoom() {
  */
 export function useBuzzerRoom(onBuzz?: () => void) {
   const [room, setRoom] = useState<string | null>(null);
-  const [phoneCount, setPhoneCount] = useState(0);
+  const [phoneNames, setPhoneNames] = useState<string[]>([]);
   const onBuzzRef = useRef(onBuzz);
 
   useEffect(() => {
@@ -58,13 +58,13 @@ export function useBuzzerRoom(onBuzz?: () => void) {
     const channel = supabase.channel(buzzerChannelName(room));
     channel
       .on("broadcast", { event: BUZZ_EVENT }, () => onBuzzRef.current?.())
-      .on("presence", { event: "sync" }, () => setPhoneCount(countRole(channel, "buzzer")))
+      .on("presence", { event: "sync" }, () => setPhoneNames(buzzerNames(channel)))
       .subscribe((status) => {
         // スマホ側に「PC とつながっている」と見せるため、自分も名乗っておく
         if (status === "SUBSCRIBED") channel.track({ role: "host" });
       });
     return () => {
-      setPhoneCount(0);
+      setPhoneNames([]);
       supabase.removeChannel(channel);
     };
   }, [room]);
@@ -72,7 +72,7 @@ export function useBuzzerRoom(onBuzz?: () => void) {
   const newRoom = () => setRoom(saveNewRoom());
 
   const url = room ? `${phoneOrigin()}/buzzer?room=${room}` : null;
-  return { url, phoneCount, newRoom };
+  return { url, phoneNames, newRoom };
 }
 
 /**
