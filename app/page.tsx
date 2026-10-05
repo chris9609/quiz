@@ -34,11 +34,7 @@ export default async function Home() {
           <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4 text-left">
             <div className="space-y-1">
               <h2 className="text-2xl font-bold text-indigo-900">⌨️ ひとりで</h2>
-              <p className="text-sm text-gray-500">
-                わかった瞬間に{" "}
-                <kbd className="px-2 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs font-mono">Enter</kbd>{" "}
-                で早押し
-              </p>
+              <p className="text-sm text-gray-500">わかった瞬間に早押し</p>
             </div>
             <div className="mt-auto pt-2 text-center">
               <Link
