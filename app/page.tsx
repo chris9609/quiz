@@ -10,11 +10,15 @@ export default async function Home() {
 
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100">
-      <form action={signOut} className="absolute top-4 right-4 flex items-center gap-3 text-sm">
-        {email && <span className="text-indigo-700">{email}</span>}
+      {/* スマホでは見出しと重ならないよう通常の流れに置き、sm 以上で右上に浮かせる */}
+      <form
+        action={signOut}
+        className="w-full flex justify-end items-center gap-3 text-sm px-4 pt-4 sm:absolute sm:top-4 sm:right-4 sm:w-auto sm:p-0"
+      >
+        {email && <span className="text-indigo-700 truncate min-w-0">{email}</span>}
         <button
           type="submit"
-          className="bg-white hover:bg-gray-50 text-indigo-700 px-4 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-colors"
+          className="shrink-0 bg-white hover:bg-gray-50 text-indigo-700 px-4 py-1.5 rounded-full border border-indigo-200 shadow-sm transition-colors"
         >
           ログアウト
         </button>
