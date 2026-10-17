@@ -63,14 +63,14 @@ export default function BuzzerPairing({ count }: { count: number }) {
             href={`/quiz?n=${count}`}
             className="inline-block bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xl px-12 py-4 rounded-full shadow-lg transition-all duration-150 hover:shadow-xl hover:-translate-y-0.5"
           >
-            スタート！
+            みんなでスタート！
           </Link>
         ) : (
           <span
             aria-disabled="true"
             className="inline-block bg-gray-200 text-gray-400 font-bold text-xl px-12 py-4 rounded-full cursor-not-allowed"
           >
-            スタート！
+            みんなでスタート！
           </span>
         )}
         {!connected && <p className="mt-2 text-xs text-gray-400">スマホがつながると押せます</p>}

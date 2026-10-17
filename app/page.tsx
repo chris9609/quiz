@@ -68,7 +68,7 @@ export default async function Home({ searchParams }: Props) {
                 href={`/quiz?n=${count}`}
                 className="inline-block bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xl px-12 py-4 rounded-full shadow-lg transition-all duration-150 hover:shadow-xl hover:-translate-y-0.5"
               >
-                スタート！
+                ひとりでスタート！
               </Link>
             </div>
           </div>
