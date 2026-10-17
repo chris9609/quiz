@@ -2,8 +2,15 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "./login/actions";
 import BuzzerPairing from "./BuzzerPairing";
+import { QUESTION_COUNT_OPTIONS, parseQuestionCount } from "@/lib/quizData";
 
-export default async function Home() {
+type Props = {
+  searchParams: Promise<{ n?: string | string[] }>;
+};
+
+export default async function Home({ searchParams }: Props) {
+  // 選んだ出題数は URL（/?n=20）に持たせる。両方のカードのスタートに同じ数を渡せるうえ、リロードしても消えない
+  const count = parseQuestionCount((await searchParams).n);
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const email = data?.claims.email;
@@ -30,6 +37,26 @@ export default async function Home() {
           <p className="text-lg text-indigo-600">問題文が1文字ずつ表示される早押しクイズ</p>
         </div>
 
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="text-sm font-medium text-indigo-700">出題数</span>
+          {QUESTION_COUNT_OPTIONS.map((option) => (
+            <Link
+              key={option}
+              href={`/?n=${option}`}
+              replace
+              scroll={false}
+              aria-current={option === count ? "true" : undefined}
+              className={
+                option === count
+                  ? "rounded-full bg-indigo-600 px-4 py-1.5 text-sm font-bold text-white shadow"
+                  : "rounded-full border border-indigo-200 bg-white px-4 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50"
+              }
+            >
+              {option}問
+            </Link>
+          ))}
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
           <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4 text-left">
             <div className="space-y-1">
@@ -38,7 +65,7 @@ export default async function Home() {
             </div>
             <div className="mt-auto pt-2 text-center">
               <Link
-                href="/quiz"
+                href={`/quiz?n=${count}`}
                 className="inline-block bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xl px-12 py-4 rounded-full shadow-lg transition-all duration-150 hover:shadow-xl hover:-translate-y-0.5"
               >
                 スタート！
@@ -46,7 +73,7 @@ export default async function Home() {
             </div>
           </div>
 
-          <BuzzerPairing />
+          <BuzzerPairing count={count} />
         </div>
 
         <div className="text-center text-sm text-indigo-700/80 space-y-1">

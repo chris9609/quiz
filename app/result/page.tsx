@@ -32,7 +32,7 @@ export default async function ResultPage({ searchParams }: Props) {
         {/* Actions */}
         <div className="flex flex-col gap-3">
           <Link
-            href="/quiz"
+            href={`/quiz?n=${total}`}
             className="block text-center bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg px-8 py-4 rounded-full shadow-lg transition-all duration-150 hover:shadow-xl hover:-translate-y-0.5"
           >
             もう一度挑戦！

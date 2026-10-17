@@ -1,12 +1,17 @@
 import Link from "next/link";
 import QuizClient from "./QuizClient";
-import { getQuizzes } from "@/lib/quizData";
+import { getQuizzes, parseQuestionCount } from "@/lib/quizData";
 
 // 出題は毎回ランダムなので、ビルド時に固定させない
 export const dynamic = "force-dynamic";
 
-export default async function QuizPage() {
-  const quizzes = await getQuizzes();
+type Props = {
+  searchParams: Promise<{ n?: string | string[] }>;
+};
+
+export default async function QuizPage({ searchParams }: Props) {
+  const { n } = await searchParams;
+  const quizzes = await getQuizzes(parseQuestionCount(n));
 
   // DB が空（seed 未投入 / 一時停止からの復帰直後）でもクラッシュさせない
   if (quizzes.length === 0) {

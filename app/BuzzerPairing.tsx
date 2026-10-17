@@ -11,7 +11,7 @@ import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
  * このページはログインした人にしか見えず、部屋はブラウザごとに別なので、
  * QR を他の利用者に見られることはない。
  */
-export default function BuzzerPairing() {
+export default function BuzzerPairing({ count }: { count: number }) {
   const { url, phoneNames, newRoom } = useBuzzerRoom();
   const [open, setOpen] = useState(false);
   const connected = phoneNames.length > 0;
@@ -60,7 +60,7 @@ export default function BuzzerPairing() {
       <div className="mt-auto pt-2 text-center">
         {connected ? (
           <Link
-            href="/quiz"
+            href={`/quiz?n=${count}`}
             className="inline-block bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xl px-12 py-4 rounded-full shadow-lg transition-all duration-150 hover:shadow-xl hover:-translate-y-0.5"
           >
             スタート！
