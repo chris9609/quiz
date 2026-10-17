@@ -73,7 +73,8 @@ export default function BuzzerPairing({ count }: { count: number }) {
             みんなでスタート！
           </span>
         )}
-        {!connected && <p className="mt-2 text-xs text-gray-400">スマホがつながると押せます</p>}
+        {/* つながった後も行は残す。消すとボタンが下にずれ、ひとりでカードのボタンと高さが合わなくなる */}
+        <p className={`mt-2 text-xs text-gray-400 ${connected ? "invisible" : ""}`}>スマホがつながると押せます</p>
       </div>
     </div>
   );

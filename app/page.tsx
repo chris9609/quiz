@@ -70,6 +70,8 @@ export default async function Home({ searchParams }: Props) {
               >
                 ひとりでスタート！
               </Link>
+              {/* みんなでカードのボタン下の注意書きと同じ高さを空け、2つのボタンの位置をそろえる */}
+              <p aria-hidden="true" className="mt-2 text-xs invisible">&nbsp;</p>
             </div>
           </div>
 
