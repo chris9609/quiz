@@ -50,12 +50,21 @@ function AnkiButton({ status, onClick }: { status: AnkiStatus; onClick: () => vo
   );
 }
 
+type Filter = "all" | "correct" | "wrong";
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: "all", label: "すべて" },
+  { value: "correct", label: "⭕ 正解" },
+  { value: "wrong", label: "❌ 不正解" },
+];
+
 /** 今回解いた問題の一覧。どこまで読んで押したかが分かるよう、未表示だった部分は薄く出す */
 export default function ResultList() {
   // サーバーでは sessionStorage が読めないので null → クライアントで中身に置き換わる
   const raw = useSyncExternalStore(subscribe, readStoredResults, () => null);
   const results = parseResults(raw);
   const [ankiStatus, setAnkiStatus] = useState<Record<string, AnkiStatus>>({});
+  const [filter, setFilter] = useState<Filter>("all");
 
   // 前のプレイで既に押した問題は最初から「追加済み」にする。
   // results は毎回作り直される配列なので、依存には中身の ID を連結した文字列を使う
@@ -87,12 +96,41 @@ export default function ResultList() {
 
   if (results.length === 0) return null;
 
+  // 絞り込んでも「第何問だったか」が分かるよう、元の番号を持たせてからフィルタする
+  const visible = results
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => filter === "all" || (filter === "correct") === r.correct);
+  const correctCount = results.filter((r) => r.correct).length;
+  const counts: Record<Filter, number> = {
+    all: results.length,
+    correct: correctCount,
+    wrong: results.length - correctCount,
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4">
       <h2 className="text-lg font-bold text-indigo-900">今回の問題</h2>
+      <div className="flex gap-2">
+        {FILTERS.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setFilter(value)}
+            className={`text-sm font-medium px-3 py-1 rounded-full border transition-colors ${
+              filter === value
+                ? "bg-indigo-600 border-indigo-600 text-white"
+                : "border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            }`}
+          >
+            {label} {counts[value]}
+          </button>
+        ))}
+      </div>
+      {visible.length === 0 && (
+        <p className="text-sm text-gray-400">該当する問題はありません</p>
+      )}
       {/* 30問でも縦に長くなりすぎないよう、普段は「正解」だけの1行にしてタップで問題文を開く */}
       <ol className="divide-y divide-gray-100">
-        {results.map((r, i) => (
+        {visible.map(({ r, i }) => (
           <li key={i} className="flex items-start gap-2 py-2 first:pt-0 last:pb-0">
             <details className="group flex-1 min-w-0">
               <summary className="flex items-center gap-2 py-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
