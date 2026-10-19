@@ -37,13 +37,13 @@ const UNIQUE_VIOLATION = "23505";
 
 function AnkiButton({ status, onClick }: { status: AnkiStatus; onClick: () => void }) {
   if (status === "requested") {
-    return <span className="text-sm font-medium text-green-700">✓ Anki 追加済み</span>;
+    return <span className="whitespace-nowrap text-sm font-medium text-green-700">✓ Anki 追加済み</span>;
   }
   return (
     <button
       onClick={onClick}
       disabled={status === "saving"}
-      className="text-sm font-medium px-3 py-1 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+      className="whitespace-nowrap text-sm font-medium px-3 py-1 rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
     >
       {status === "saving" ? "記録中…" : status === "error" ? "失敗しました（再試行）" : "+ Anki"}
     </button>
@@ -90,32 +90,39 @@ export default function ResultList() {
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4">
       <h2 className="text-lg font-bold text-indigo-900">今回の問題</h2>
-      <ol className="space-y-4">
+      {/* 30問でも縦に長くなりすぎないよう、普段は「正解」だけの1行にしてタップで問題文を開く */}
+      <ol className="divide-y divide-gray-100">
         {results.map((r, i) => (
-          <li key={i} className="border-b border-gray-100 last:border-b-0 pb-4 last:pb-0 space-y-2">
-            <span className="text-sm font-medium text-gray-500">
-              {r.correct ? "⭕" : "❌"} 第{i + 1}問
-            </span>
-            <p className="text-gray-800 leading-relaxed">
-              {r.question.slice(0, r.charsShown)}
-              {r.charsShown < r.question.length && (
-                <>
-                  <span className="mx-1 text-indigo-400 font-bold">/</span>
-                  <span className="text-gray-400">{r.question.slice(r.charsShown)}</span>
-                </>
-              )}
-            </p>
-            <p className="text-sm text-gray-600">
-              正解: <span className="font-bold text-gray-800">{r.answer}</span>
-              {!r.correct && (
-                <>
-                  <span className="mx-2 text-gray-300">|</span>
-                  あなたの回答: <span className="font-bold text-red-600">{r.userAnswer}</span>
-                </>
-              )}
-            </p>
+          <li key={i} className="flex items-start gap-2 py-2 first:pt-0 last:pb-0">
+            <details className="group flex-1 min-w-0">
+              <summary className="flex items-center gap-2 py-1 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span className="text-gray-400 text-xs transition-transform group-open:rotate-90">▶</span>
+                <span className="shrink-0 text-sm font-medium text-gray-500">
+                  {r.correct ? "⭕" : "❌"} {i + 1}
+                </span>
+                <span className="truncate font-bold text-gray-800">{r.answer}</span>
+              </summary>
+              <div className="pl-5 pt-1 pb-2 space-y-2">
+                <p className="text-gray-800 leading-relaxed">
+                  {r.question.slice(0, r.charsShown)}
+                  {r.charsShown < r.question.length && (
+                    <>
+                      <span className="mx-1 text-indigo-400 font-bold">/</span>
+                      <span className="text-gray-400">{r.question.slice(r.charsShown)}</span>
+                    </>
+                  )}
+                </p>
+                {!r.correct && (
+                  <p className="text-sm text-gray-600">
+                    あなたの回答:{" "}
+                    <span className="font-bold text-red-600">{r.userAnswer || "（未回答）"}</span>
+                  </p>
+                )}
+              </div>
+            </details>
+            {/* summary の中に置くとボタンを押したときに開閉まで反応するので外に出す */}
             {r.quizId && (
-              <div className="flex justify-end">
+              <div className="shrink-0 pt-0.5">
                 <AnkiButton
                   status={ankiStatus[r.quizId] ?? "idle"}
                   onClick={() => requestAnki(r.quizId!)}
@@ -125,7 +132,9 @@ export default function ResultList() {
           </li>
         ))}
       </ol>
-      <p className="text-xs text-gray-400">「/」から後の薄い文字は、押した時点でまだ表示されていなかった部分です</p>
+      <p className="text-xs text-gray-400">
+        タップで問題文を表示。「/」から後の薄い文字は、押した時点でまだ表示されていなかった部分です
+      </p>
     </div>
   );
 }
