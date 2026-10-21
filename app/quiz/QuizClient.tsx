@@ -13,6 +13,8 @@ type Phase = "revealing" | "answering" | "feedback";
 const CHAR_INTERVAL_MS = 100;
 /** 回答送信の Enter がそのまま「次へ」に貫通しないよう、feedback 直後は Enter を無視する */
 const FEEDBACK_ENTER_GRACE_MS = 400;
+/** 止めてから回答できる秒数。過ぎたらその時点の入力で自動送信する */
+const ANSWER_TIME_LIMIT_SEC = 10;
 
 export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const router = useRouter();
@@ -22,12 +24,14 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
   const [charsShown, setCharsShown] = useState(0);
   const [phase, setPhase] = useState<Phase>("revealing");
   const [userAnswer, setUserAnswer] = useState("");
-  const [lastResult, setLastResult] = useState<{ correct: boolean; answer: string } | null>(null);
+  const [lastResult, setLastResult] = useState<{ correct: boolean; answer: string; timedOut: boolean } | null>(null);
   const [results, setResults] = useState<QuizResult[]>([]);
+  const [secondsLeft, setSecondsLeft] = useState(ANSWER_TIME_LIMIT_SEC);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const feedbackAtRef = useRef(0);
+  const answerDeadlineRef = useRef(0);
 
   const currentQuiz = questions[questionIndex];
   const displayedText = currentQuiz.question.slice(0, charsShown);
@@ -36,14 +40,21 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     setTimeout(() => inputRef.current?.focus(), 50);
   };
 
+  // 出題を止めて回答フェーズへ。制限時間のカウントダウンもここから始まる
+  const startAnswering = useCallback(() => {
+    answerDeadlineRef.current = Date.now() + ANSWER_TIME_LIMIT_SEC * 1000;
+    setSecondsLeft(ANSWER_TIME_LIMIT_SEC);
+    setPhase("answering");
+    focusInput();
+  }, []);
+
   const stopRevealing = useCallback(() => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-    setPhase("answering");
-    focusInput();
-  }, []);
+    startAnswering();
+  }, [startAnswering]);
 
   // 問題文を1文字ずつ表示する。
   // state のリセットは「次の問題へ」を押したときに行うので、この effect は
@@ -59,8 +70,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
-          setPhase("answering");
-          focusInput();
+          startAnswering();
           return prev;
         }
         return prev + 1;
@@ -73,9 +83,9 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
         intervalRef.current = null;
       }
     };
-  }, [questionIndex, phase, questions]);
+  }, [questionIndex, phase, questions, startAnswering]);
 
-  const submitAnswer = () => {
+  const submitAnswer = useCallback((timedOut = false) => {
     const trimmed = userAnswer.trim();
     const correct = isCorrectAnswer(
       trimmed,
@@ -94,10 +104,26 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
     };
 
     feedbackAtRef.current = Date.now();
-    setLastResult({ correct, answer: currentQuiz.answer });
+    setLastResult({ correct, answer: currentQuiz.answer, timedOut });
     setResults((prev) => [...prev, result]);
     setPhase("feedback");
-  };
+  }, [userAnswer, currentQuiz, charsShown]);
+
+  // 回答の制限時間。締め切り時刻は ref に持つので、入力のたびに
+  // interval が作り直されても残り時間はずれない
+  useEffect(() => {
+    if (phase !== "answering") return;
+    const timer = setInterval(() => {
+      const remaining = Math.ceil((answerDeadlineRef.current - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(timer);
+        submitAnswer(true);
+      } else {
+        setSecondsLeft(remaining);
+      }
+    }, 200);
+    return () => clearInterval(timer);
+  }, [phase, submitAnswer]);
 
   const nextQuestion = useCallback(() => {
     const nextIndex = questionIndex + 1;
@@ -205,7 +231,24 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
 
         {phase === "answering" && (
           <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4">
-            <p className="text-gray-600 font-medium text-center">回答を入力してください</p>
+            <div className="flex items-center justify-between">
+              <p className="text-gray-600 font-medium">回答を入力してください</p>
+              <span
+                className={`text-2xl font-bold tabular-nums ${
+                  secondsLeft <= 3 ? "text-red-500 animate-pulse" : "text-indigo-600"
+                }`}
+              >
+                ⏱ {secondsLeft}
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-1000 ease-linear ${
+                  secondsLeft <= 3 ? "bg-red-500" : "bg-indigo-500"
+                }`}
+                style={{ width: `${(secondsLeft / ANSWER_TIME_LIMIT_SEC) * 100}%` }}
+              />
+            </div>
             <div className="flex gap-3">
               <input
                 ref={inputRef}
@@ -217,7 +260,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
                 className="flex-1 border-2 border-indigo-300 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-lg text-gray-900 bg-white placeholder:text-gray-400"
               />
               <button
-                onClick={submitAnswer}
+                onClick={() => submitAnswer()}
                 disabled={userAnswer.trim() === ""}
                 className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 text-white font-bold px-6 py-3 rounded-xl transition-colors"
               >
@@ -239,7 +282,7 @@ export default function QuizClient({ quizzes }: { quizzes: Quiz[] }) {
             <div className="text-center">
               <span className="text-4xl">{lastResult.correct ? "⭕" : "❌"}</span>
               <p className={`text-xl font-bold mt-1 ${lastResult.correct ? "text-green-700" : "text-red-700"}`}>
-                {lastResult.correct ? "正解！" : "不正解"}
+                {lastResult.correct ? "正解！" : lastResult.timedOut ? "時間切れ" : "不正解"}
               </p>
             </div>
             <p className="text-center text-gray-600">
