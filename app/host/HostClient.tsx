@@ -30,19 +30,40 @@ export default function HostClient() {
     setOrder((prev) => (prev.some((p) => p.id === buzz.id) ? prev : [...prev, buzz]));
   });
 
+  // 今の問題で司会が付けた判定（付けた順。「1つ戻す」で後ろから消す）
+  const [judgments, setJudgments] = useState<Judgment[]>([]);
+  // 前の問題までの得点。名前で数える（スマホを読み込み直すと id は変わるが、名前は同じなので）
+  const [scores, setScores] = useState<Record<string, number>>({});
+
+  const resultOf = new Map(judgments.map((j) => [j.id, j.result]));
+  const winner = order.find((p) => resultOf.get(p.id) === "correct");
+  // 回答権は、まだ判定していない人のうち一番早く押した人。正解が出たらその問題はおしまい
+  const answerer = winner ? undefined : order.find((p) => !resultOf.has(p.id));
+
+  // 得点表は今の問題の正解も足して出す
+  const totals = { ...scores };
+  if (winner) totals[winner.name] = (totals[winner.name] ?? 0) + 1;
+  const ranking = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+  const judge = (result: Judgment["result"]) => {
+    if (answerer) setJudgments((prev) => [...prev, { id: answerer.id, result }]);
+  };
+
   const start = () => {
     setOrder([]);
+    setJudgments([]);
+    setScores({});
     setQuestionNo(1);
     setShowQr(false);
     setPhase("playing");
   };
 
   const next = () => {
+    setScores(totals);
     setOrder([]);
+    setJudgments([]);
     setQuestionNo((n) => n + 1);
   };
-
-  const [first, ...rest] = order;
 
   if (phase === "waiting") {
     return (
@@ -115,40 +136,107 @@ export default function HostClient() {
           </section>
         )}
 
-        <section className="flex flex-1 flex-col items-center gap-6 rounded-2xl bg-white p-6 shadow-lg">
+        <section className="flex flex-col items-center gap-5 rounded-2xl bg-white p-6 shadow-lg">
           <p className="text-lg font-bold text-indigo-500">第{questionNo}問</p>
-          {first ? (
-            <>
-              <div className="text-center">
-                <p className="text-lg font-bold text-red-500">1着</p>
-                <p className="break-all text-5xl font-black text-indigo-900 sm:text-7xl">{first.name}</p>
+
+          {/* いま誰の番か・結果を大きく出す */}
+          {winner ? (
+            <div className="text-center">
+              <p className="text-lg font-bold text-red-500">⭕ 正解！</p>
+              <p className="break-all text-5xl font-black text-indigo-900 sm:text-7xl">{winner.name}</p>
+            </div>
+          ) : answerer ? (
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div>
+                <p className="text-lg font-bold text-red-500">{order.indexOf(answerer) + 1}着・回答権</p>
+                <p className="break-all text-5xl font-black text-indigo-900 sm:text-7xl">{answerer.name}</p>
               </div>
-              {rest.length > 0 && (
-                <ol className="w-full max-w-sm space-y-2">
-                  {rest.map((p, i) => (
-                    <li key={p.id} className="flex items-baseline gap-3 rounded-xl bg-gray-50 px-4 py-2">
-                      <span className="w-10 shrink-0 text-sm font-bold text-gray-500">{i + 2}着</span>
-                      <span className="break-all text-xl font-bold text-gray-800">{p.name}</span>
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => judge("correct")}
+                  className="rounded-2xl bg-red-500 px-8 py-4 text-3xl font-black text-white shadow-lg active:bg-red-700"
+                >
+                  ⭕ 正解
+                </button>
+                <button
+                  onClick={() => judge("wrong")}
+                  className="rounded-2xl bg-blue-500 px-8 py-4 text-3xl font-black text-white shadow-lg active:bg-blue-700"
+                >
+                  ❌ 不正解
+                </button>
+              </div>
+            </div>
+          ) : order.length > 0 ? (
+            <p className="py-6 text-center text-xl text-gray-500">押した人は全員 ❌ でした</p>
           ) : (
-            <p className="my-auto text-center text-xl text-gray-400">押されるのを待っています…</p>
+            <p className="py-6 text-center text-xl text-gray-400">押されるのを待っています…</p>
           )}
 
-          <button
-            onClick={next}
-            className="mt-auto rounded-full bg-indigo-600 px-12 py-4 text-xl font-bold text-white shadow-lg hover:bg-indigo-700 active:bg-indigo-800"
-          >
-            次の問題へ
-          </button>
+          {order.length > 0 && (
+            <ol className="w-full max-w-sm space-y-2">
+              {order.map((p, i) => {
+                const result = resultOf.get(p.id);
+                return (
+                  <li
+                    key={p.id}
+                    className={`flex items-baseline gap-3 rounded-xl px-4 py-2 ${
+                      p === answerer ? "bg-yellow-50 ring-2 ring-yellow-300" : "bg-gray-50"
+                    }`}
+                  >
+                    <span className="w-10 shrink-0 text-sm font-bold text-gray-500">{i + 1}着</span>
+                    <span
+                      className={`min-w-0 flex-1 break-all text-xl font-bold ${
+                        result === "wrong" ? "text-gray-400 line-through" : "text-gray-800"
+                      }`}
+                    >
+                      {p.name}
+                    </span>
+                    <span className="text-xl">{result === "correct" ? "⭕" : result === "wrong" ? "❌" : ""}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+
+          {judgments.length > 0 && (
+            <button
+              onClick={() => setJudgments((prev) => prev.slice(0, -1))}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              ↶ 1つ戻す
+            </button>
+          )}
         </section>
+
+        {ranking.length > 0 && (
+          <section className="rounded-2xl bg-white p-6 shadow-lg">
+            <h2 className="mb-3 text-sm font-bold text-gray-500">得点</h2>
+            <ol className="space-y-1">
+              {ranking.map(([name, score]) => (
+                <li key={name} className="flex items-baseline justify-between gap-3">
+                  <span className="break-all font-bold text-gray-800">{name}</span>
+                  <span className="shrink-0 font-bold text-indigo-600">{score}点</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
       </main>
+
+      {/* 押した人が多くても隠れないよう、画面の下に固定する */}
+      <div className="sticky bottom-0 border-t border-indigo-100 bg-white/90 p-4 text-center backdrop-blur">
+        <button
+          onClick={next}
+          className="rounded-full bg-indigo-600 px-12 py-4 text-xl font-bold text-white shadow-lg hover:bg-indigo-700 active:bg-indigo-800"
+        >
+          次の問題へ
+        </button>
+      </div>
     </div>
   );
 }
+
+type Judgment = { id: string; result: "correct" | "wrong" };
 
 function ParticipantList({ names }: { names: string[] }) {
   return (
