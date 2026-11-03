@@ -55,13 +55,14 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gray-900 p-6 select-none">
-      <p className="text-sm text-gray-400">
+      {/* 困ったときだけ知らせる。つながっている間は消して、ランプとボタンだけにする（高さは残して位置がずれないように） */}
+      <p className="h-5 text-sm text-gray-400">
         {status === "connecting"
           ? "接続中…"
           : status === "error"
             ? "接続できませんでした。再読み込みしてください"
             : hostOnline
-              ? "● 司会とつながっています"
+              ? ""
               : "司会の準備を待っています…"}
       </p>
 
