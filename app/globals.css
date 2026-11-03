@@ -14,7 +14,7 @@
   --animate-lamp-blink: lamp-blink 0.6s steps(1, end) infinite;
   @keyframes lamp-blink {
     0% { opacity: 1; }
-    50% { opacity: 0.35; }
+    50% { opacity: 0; }
   }
 }
 
