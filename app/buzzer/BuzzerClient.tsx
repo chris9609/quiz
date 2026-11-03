@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, RANKING_EVENT, buzzerChannelName, hasHost, parseRanking, type BuzzPayload } from "@/lib/buzzer";
+import { BUZZ_EVENT, RANKING_EVENT, buzzerChannelName, hasHost, parseRanking, randomId, type BuzzPayload } from "@/lib/buzzer";
 
 type Status = "connecting" | "ready" | "error";
 
@@ -18,7 +18,7 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
   const idRef = useRef<string | null>(null);
 
   useEffect(() => {
-    idRef.current ??= crypto.randomUUID();
+    idRef.current ??= randomId();
   }, []);
 
   useEffect(() => {

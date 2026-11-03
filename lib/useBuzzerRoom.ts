@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import {
+  randomId,
   BUZZ_EVENT,
   RANKING_EVENT,
   buzzerChannelName,
@@ -27,8 +28,8 @@ function loadOrCreateRoom() {
 }
 
 function saveNewRoom() {
-  // 推測されると他人が押せてしまうので、連番ではなく UUID にする
-  const room = crypto.randomUUID();
+  // 推測されると他人が押せてしまうので、連番ではなくランダムな ID にする
+  const room = randomId();
   try {
     localStorage.setItem(ROOM_STORAGE_KEY, room);
   } catch {}

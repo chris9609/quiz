@@ -7,6 +7,17 @@ export const BUZZ_EVENT = "buzz";
 /** スマホで入力する名前の上限。PC の小さな表示欄に収まる長さにしておく */
 export const BUZZER_NAME_MAX = 10;
 
+/**
+ * 推測されにくいランダムな ID。
+ * crypto.randomUUID() は https か localhost でしか使えず、同じ Wi-Fi のスマホから
+ * http://192.168.x.x:3000 で開くと止まってしまうので、使えないときは getRandomValues で作る。
+ */
+export function randomId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function buzzerChannelName(room: string) {
   return `buzzer:${room}`;
 }
