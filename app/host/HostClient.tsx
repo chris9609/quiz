@@ -154,15 +154,17 @@ export default function HostClient() {
               <div className="flex gap-4">
                 <button
                   onClick={() => judge("correct")}
-                  className="rounded-2xl bg-red-500 px-8 py-4 text-3xl font-black text-white shadow-lg active:bg-red-700"
+                  aria-label="正解"
+                  className="rounded-2xl bg-red-500 px-10 py-4 text-4xl shadow-lg active:bg-red-700"
                 >
-                  ⭕ 正解
+                  ⭕
                 </button>
                 <button
                   onClick={() => judge("wrong")}
-                  className="rounded-2xl bg-blue-500 px-8 py-4 text-3xl font-black text-white shadow-lg active:bg-blue-700"
+                  aria-label="不正解"
+                  className="rounded-2xl bg-blue-500 px-10 py-4 text-4xl shadow-lg active:bg-blue-700"
                 >
-                  ❌ 不正解
+                  ❌
                 </button>
               </div>
             </div>
