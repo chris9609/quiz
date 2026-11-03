@@ -5,6 +5,7 @@ import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
 import type { BuzzPayload } from "@/lib/buzzer";
+import { playPinpon, unlockSound } from "@/lib/sound";
 
 /**
  * 司会画面。問題は司会が声で出し、この画面は2段階で使う。
@@ -35,6 +36,11 @@ export default function HostClient() {
     sendRanking(phase === "playing" ? order.map((p) => p.id) : []);
   }, [order, phase, sendRanking]);
 
+  // その問題で最初に誰かが押した瞬間に「ピンポーン」。2人目以降では鳴らさない
+  useEffect(() => {
+    if (phase === "playing" && order.length === 1) playPinpon();
+  }, [order.length, phase]);
+
   // 今の問題で司会が付けた判定（付けた順。「1つ戻す」で後ろから消す）
   const [judgments, setJudgments] = useState<Judgment[]>([]);
   // 前の問題までの得点。名前で数える（スマホを読み込み直すと id は変わるが、名前は同じなので）
@@ -55,6 +61,8 @@ export default function HostClient() {
   };
 
   const start = () => {
+    // スマホは画面を触った流れの中でないと音を出せないので、ここで鳴らせる状態にしておく
+    unlockSound();
     setOrder([]);
     setJudgments([]);
     setScores({});
