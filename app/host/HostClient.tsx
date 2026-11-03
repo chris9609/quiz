@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
@@ -41,6 +41,7 @@ export default function HostClient() {
             <QRCodeSVG value={url} size={180} className="shrink-0" />
             <div className="flex w-full flex-col gap-3">
               <p className="text-sm text-gray-500">スマホのカメラで読み取ると早押しボタンになります（ログイン不要）</p>
+              <CopyUrl url={url} />
               <div className="space-y-2">
                 <p className="text-xs font-medium text-gray-500">参加者 {phoneNames.length}人</p>
                 {phoneNames.length > 0 ? (
@@ -92,6 +93,42 @@ export default function HostClient() {
           </button>
         </section>
       </main>
+    </div>
+  );
+}
+
+/**
+ * QR の URL を文字でも出し、コピーできるようにする。
+ * QR を読めない人に LINE で送ったり、ダミー参加者（scripts/fake_buzzers.mjs）に渡したりするため。
+ * コピーが使えない環境（http の LAN アドレスなど）でも、文字は長押しで選べる。
+ */
+function CopyUrl({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {}
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <p className="min-w-0 flex-1 select-all break-all rounded-lg bg-gray-50 px-3 py-2 font-mono text-xs text-gray-600">
+        {url}
+      </p>
+      <button
+        onClick={copy}
+        className="shrink-0 rounded-full border border-indigo-200 bg-white px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
+      >
+        {copied ? "コピーしました" : "コピー"}
+      </button>
     </div>
   );
 }
