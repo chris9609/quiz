@@ -14,7 +14,7 @@ export default async function BuzzerPage({ searchParams }: Props) {
   if (!room) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-900 p-6 text-center text-gray-200">
-        <p>PC のクイズ画面に出ている QR コードを読み取ってください</p>
+        <p>司会の画面に出ている QR コードを読み取ってください</p>
       </div>
     );
   }

@@ -55,8 +55,8 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
           : status === "error"
             ? "接続できませんでした。再読み込みしてください"
             : hostOnline
-              ? "● PC とつながっています"
-              : "PC の画面を開いて待っています…"}
+              ? "● 司会とつながっています"
+              : "司会の準備を待っています…"}
       </p>
       <button
         onPointerDown={buzz}
