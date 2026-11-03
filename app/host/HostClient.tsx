@@ -25,10 +25,15 @@ export default function HostClient() {
     phaseRef.current = phase;
   });
 
-  const { url, phoneNames, newRoom } = useBuzzerRoom((buzz) => {
+  const { url, phoneNames, newRoom, sendRanking } = useBuzzerRoom((buzz) => {
     if (!buzz || phaseRef.current !== "playing") return;
     setOrder((prev) => (prev.some((p) => p.id === buzz.id) ? prev : [...prev, buzz]));
   });
+
+  // 押した順が変わるたびに全員のスマホへ送る（1着・2着のランプ用）。受付中や次の問題では空にして消す
+  useEffect(() => {
+    sendRanking(phase === "playing" ? order.map((p) => p.id) : []);
+  }, [order, phase, sendRanking]);
 
   // 今の問題で司会が付けた判定（付けた順。「1つ戻す」で後ろから消す）
   const [judgments, setJudgments] = useState<Judgment[]>([]);

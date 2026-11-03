@@ -25,6 +25,18 @@ export function parseBuzzPayload(payload: unknown): BuzzPayload | null {
   return { id, name: name.trim().slice(0, BUZZER_NAME_MAX) };
 }
 
+/**
+ * 司会画面から全員のスマホへ送る「今の押した順」。スマホは自分の id が何番目かを見てランプを点ける。
+ * 次の問題に進むと空の配列が届き、ランプが消える。
+ */
+export const RANKING_EVENT = "ranking";
+
+export function parseRanking(payload: unknown): string[] {
+  if (typeof payload !== "object" || payload === null) return [];
+  const { ids } = payload as Record<string, unknown>;
+  return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === "string") : [];
+}
+
 /** Presence で名乗る内容。PC（出題側）は host、スマホは buzzer で名前も添える */
 export type BuzzerPresence = { role: "host" } | { role: "buzzer"; name: string };
 
