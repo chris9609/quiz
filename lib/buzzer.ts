@@ -11,6 +11,20 @@ export function buzzerChannelName(room: string) {
   return `buzzer:${room}`;
 }
 
+/**
+ * 押したときに送る内容。司会画面で「誰が押したか」を出すため。
+ * id はスマホごとの印で、同じ名前の人が2人いても別人として数えるのに使う。
+ */
+export type BuzzPayload = { id: string; name: string };
+
+/** 届いた payload を確かめる。古い画面のままのスマホは中身なし（{}）で送ってくる */
+export function parseBuzzPayload(payload: unknown): BuzzPayload | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const { id, name } = payload as Record<string, unknown>;
+  if (typeof id !== "string" || typeof name !== "string" || !name.trim()) return null;
+  return { id, name: name.trim().slice(0, BUZZER_NAME_MAX) };
+}
+
 /** Presence で名乗る内容。PC（出題側）は host、スマホは buzzer で名前も添える */
 export type BuzzerPresence = { role: "host" } | { role: "buzzer"; name: string };
 

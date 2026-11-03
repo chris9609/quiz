@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, buzzerChannelName, hasHost } from "@/lib/buzzer";
+import { BUZZ_EVENT, buzzerChannelName, hasHost, type BuzzPayload } from "@/lib/buzzer";
 
 type Status = "connecting" | "ready" | "error";
 
@@ -12,6 +12,12 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
   const [hostOnline, setHostOnline] = useState(false);
   const [pressed, setPressed] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  // このスマホの印。司会画面で同じ名前の人を見分けるのに使う
+  const idRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    idRef.current ??= crypto.randomUUID();
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -34,8 +40,9 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
 
   // onClick は指を離したときに発火するので遅い。触れた瞬間に送る
   const buzz = () => {
-    if (status !== "ready" || !channelRef.current) return;
-    channelRef.current.send({ type: "broadcast", event: BUZZ_EVENT, payload: {} });
+    if (status !== "ready" || !channelRef.current || !idRef.current) return;
+    const payload: BuzzPayload = { id: idRef.current, name };
+    channelRef.current.send({ type: "broadcast", event: BUZZ_EVENT, payload });
     setPressed(true);
     setTimeout(() => setPressed(false), 300);
   };

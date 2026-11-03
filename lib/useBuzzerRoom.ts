@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, buzzerChannelName, buzzerNames } from "@/lib/buzzer";
+import { BUZZ_EVENT, buzzerChannelName, buzzerNames, parseBuzzPayload, type BuzzPayload } from "@/lib/buzzer";
 
 const ROOM_STORAGE_KEY = "buzzerRoom";
 
@@ -37,7 +37,7 @@ function saveNewRoom() {
  * 入り直しの隙間に押された合図を取りこぼす。チャンネルは部屋ごとに1回だけ作り、
  * 最新の onBuzz は ref 経由で呼ぶ。
  */
-export function useBuzzerRoom(onBuzz?: () => void) {
+export function useBuzzerRoom(onBuzz?: (buzz: BuzzPayload | null) => void) {
   const [room, setRoom] = useState<string | null>(null);
   const [phoneNames, setPhoneNames] = useState<string[]>([]);
   const onBuzzRef = useRef(onBuzz);
@@ -57,7 +57,7 @@ export function useBuzzerRoom(onBuzz?: () => void) {
     const supabase = createClient();
     const channel = supabase.channel(buzzerChannelName(room));
     channel
-      .on("broadcast", { event: BUZZ_EVENT }, () => onBuzzRef.current?.())
+      .on("broadcast", { event: BUZZ_EVENT }, ({ payload }) => onBuzzRef.current?.(parseBuzzPayload(payload)))
       .on("presence", { event: "sync" }, () => setPhoneNames(buzzerNames(channel)))
       .subscribe((status) => {
         // スマホ側に「PC とつながっている」と見せるため、自分も名乗っておく

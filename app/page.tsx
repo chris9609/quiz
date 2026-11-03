@@ -81,6 +81,12 @@ export default async function Home({ searchParams }: Props) {
         <div className="text-center text-sm text-indigo-700/80 space-y-1">
           <p>📖 問題文が1文字ずつ表示されます → 🔔 わかったら早押し → ✍️ 回答を入力して送信</p>
         </div>
+
+        <div className="text-center">
+          <Link href="/host" className="text-sm text-indigo-600 hover:text-indigo-800 underline">
+            🎤 早押しボタンだけ使う（問題は声で出す）
+          </Link>
+        </div>
       </div>
     </div>
   );
