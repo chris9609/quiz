@@ -3,7 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { BUZZ_EVENT, RANKING_EVENT, buzzerChannelName, hasHost, parseRanking, randomId, type BuzzPayload } from "@/lib/buzzer";
+import { useStayConnected } from "@/lib/useStayConnected";
+import { BUZZ_EVENT, RANKING_EVENT, buzzerChannelName, hasHost, loadBuzzerId, parseRanking, type BuzzPayload } from "@/lib/buzzer";
 
 type Status = "connecting" | "ready" | "error";
 
@@ -17,11 +18,10 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
   // このスマホの印。司会画面で同じ名前の人を見分けるのに使う
   const idRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    idRef.current ??= randomId();
-  }, []);
+  useStayConnected();
 
   useEffect(() => {
+    idRef.current = loadBuzzerId(room, name);
     const supabase = createClient();
     const channel = supabase.channel(buzzerChannelName(room));
     channel
@@ -33,9 +33,9 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
       .subscribe((s) => {
         if (s === "SUBSCRIBED") {
           setStatus("ready");
-          // 司会画面に「誰のスマホがつながったか」を見せるために名乗る
+          // 司会画面に「誰のスマホがつながったか」を見せるために名乗る（つなぎ直したときも）
           channel.track({ role: "buzzer", name });
-        } else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") setStatus("error");
+        } else setStatus("error");
       });
     channelRef.current = channel;
     return () => {
@@ -60,7 +60,7 @@ export default function BuzzerClient({ room, name }: { room: string; name: strin
         {status === "connecting"
           ? "接続中…"
           : status === "error"
-            ? "接続できませんでした。再読み込みしてください"
+            ? "接続が切れました。つなぎ直しています…"
             : hostOnline
               ? ""
               : "司会の準備を待っています…"}

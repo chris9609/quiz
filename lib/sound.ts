@@ -22,7 +22,7 @@ function audio(): AudioContext | null {
 export function unlockSound() {
   const c = audio();
   if (!c) return;
-  if (c.state === "suspended") void c.resume();
+  if (c.state !== "running") void c.resume();
   // iPhone は「実際に何か鳴らす」までロックが外れないので、無音を一瞬だけ流す
   const silent = c.createBuffer(1, 1, c.sampleRate);
   const src = c.createBufferSource();
@@ -62,7 +62,7 @@ function chime(c: AudioContext, freq: number, start: number, length: number, vol
 export function playPinpon() {
   const c = audio();
   if (!c) return;
-  if (c.state === "suspended") void c.resume();
+  if (c.state !== "running") void c.resume();
   const t = c.currentTime + 0.02;
   chime(c, 1046.5, t, 0.6, 0.5); // ド（高い）
   chime(c, 830.6, t + 0.28, 1.4, 0.5); // ソ#

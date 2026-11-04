@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { useBuzzerRoom } from "@/lib/useBuzzerRoom";
-import type { BuzzPayload } from "@/lib/buzzer";
+import { useStayConnected } from "@/lib/useStayConnected";
+import { NEW_GAME, loadHostGame, saveHostGame, type HostGame, type Judgment, type QuestionState } from "@/lib/hostGame";
 import { playPinpon, unlockSound } from "@/lib/sound";
 
 /**
@@ -15,10 +16,24 @@ import { playPinpon, unlockSound } from "@/lib/sound";
  * 順番は「この画面に届いた順」。電波の差で数十ミリ秒ずれることはある。
  */
 export default function HostClient() {
-  const [phase, setPhase] = useState<"waiting" | "playing">("waiting");
-  const [questionNo, setQuestionNo] = useState(1);
-  const [order, setOrder] = useState<BuzzPayload[]>([]);
+  // 保存された進行状況はブラウザでしか読めないので、読み終わってから画面を出す
+  const [saved, setSaved] = useState<HostGame | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage はブラウザでしか読めない
+    setSaved(loadHostGame());
+  }, []);
+  return saved ? <HostScreen initial={saved} /> : <div className="min-h-screen bg-indigo-50" />;
+}
+
+function HostScreen({ initial }: { initial: HostGame }) {
+  const [phase, setPhase] = useState(initial.phase);
+  const [questionNo, setQuestionNo] = useState(initial.questionNo);
+  const [order, setOrder] = useState(initial.order);
   const [showQr, setShowQr] = useState(false);
+  // 読み込み直すと音の許可が外れるので、本番の途中で開いたらタップを促す
+  const [soundLocked, setSoundLocked] = useState(initial.phase === "playing");
+
+  useStayConnected();
 
   // 合図を受け取る関数の中では、最新の phase を ref で見る
   const phaseRef = useRef(phase);
@@ -26,7 +41,7 @@ export default function HostClient() {
     phaseRef.current = phase;
   });
 
-  const { url, phoneNames, newRoom, sendRanking } = useBuzzerRoom((buzz) => {
+  const { url, phoneNames, connectionLost, newRoom, sendRanking } = useBuzzerRoom((buzz) => {
     if (!buzz || phaseRef.current !== "playing") return;
     setOrder((prev) => (prev.some((p) => p.id === buzz.id) ? prev : [...prev, buzz]));
   });
@@ -36,15 +51,23 @@ export default function HostClient() {
     sendRanking(phase === "playing" ? order.map((p) => p.id) : []);
   }, [order, phase, sendRanking]);
 
-  // その問題で最初に誰かが押した瞬間に「ピンポーン」。2人目以降では鳴らさない
+  // その問題で最初に誰かが押した瞬間に「ピンポーン」。2人目以降や、読み込み直して復元したときは鳴らさない
+  const lastOrderLength = useRef(initial.order.length);
   useEffect(() => {
-    if (phase === "playing" && order.length === 1) playPinpon();
+    if (phase === "playing" && lastOrderLength.current === 0 && order.length > 0) playPinpon();
+    lastOrderLength.current = order.length;
   }, [order.length, phase]);
 
   // 今の問題で司会が付けた判定（付けた順。「1つ戻す」で後ろから消す）
-  const [judgments, setJudgments] = useState<Judgment[]>([]);
-  // 前の問題までの得点。名前で数える（スマホを読み込み直すと id は変わるが、名前は同じなので）
-  const [scores, setScores] = useState<Record<string, number>>({});
+  const [judgments, setJudgments] = useState(initial.judgments);
+  // 前の問題までの得点。名前で数える（別のブラウザで入り直すと id は変わるが、名前は同じなので）
+  const [scores, setScores] = useState(initial.scores);
+  // 「次の問題へ」を押す前の状態。押し間違えたときに戻す
+  const [previous, setPrevious] = useState(initial.previous);
+
+  useEffect(() => {
+    saveHostGame({ phase, questionNo, order, judgments, scores, previous });
+  }, [phase, questionNo, order, judgments, scores, previous]);
 
   const resultOf = new Map(judgments.map((j) => [j.id, j.result]));
   const winner = order.find((p) => resultOf.get(p.id) === "correct");
@@ -60,27 +83,65 @@ export default function HostClient() {
     if (answerer) setJudgments((prev) => [...prev, { id: answerer.id, result }]);
   };
 
+  // 得点表の ＋/−。次の問題へ進んだあとで判定の間違いに気づいたとき用
+  const adjustScore = (name: string, delta: number) => {
+    setScores((prev) => ({ ...prev, [name]: (prev[name] ?? 0) + delta }));
+  };
+
+  const inProgress = questionNo > 1 || order.length > 0 || Object.keys(scores).length > 0;
+
+  // 受付に戻っても得点は消さない。遅れて来た人に QR を見せるために戻ることがあるので
   const start = () => {
-    // スマホは画面を触った流れの中でないと音を出せないので、ここで鳴らせる状態にしておく
-    unlockSound();
-    setOrder([]);
-    setJudgments([]);
-    setScores({});
-    setQuestionNo(1);
     setShowQr(false);
     setPhase("playing");
   };
 
+  const restart = () => {
+    if (!window.confirm("得点と問題番号を消して、最初からやり直しますか？")) return;
+    setOrder(NEW_GAME.order);
+    setJudgments(NEW_GAME.judgments);
+    setScores(NEW_GAME.scores);
+    setQuestionNo(NEW_GAME.questionNo);
+    setPrevious(NEW_GAME.previous);
+  };
+
   const next = () => {
+    const before: QuestionState = { questionNo, order, judgments, scores };
+    setPrevious(before);
     setScores(totals);
     setOrder([]);
     setJudgments([]);
     setQuestionNo((n) => n + 1);
   };
 
+  const undoNext = () => {
+    if (!previous) return;
+    // 戻しただけでピンポーンが鳴らないように
+    lastOrderLength.current = previous.order.length;
+    setOrder(previous.order);
+    setJudgments(previous.judgments);
+    setScores(previous.scores);
+    setQuestionNo(previous.questionNo);
+    setPrevious(null);
+  };
+
+  // スマホは画面を触った流れの中でないと音を出せないので、触るたびに鳴らせる状態にしておく
+  // （スリープから戻ったあとも許可が外れることがある）
+  const onAnyTap = () => {
+    unlockSound();
+    setSoundLocked(false);
+  };
+
+  const connectionWarning = connectionLost && (
+    <p role="alert" className="bg-red-600 px-4 py-2 text-center text-sm font-bold text-white">
+      接続が切れました。つなぎ直しています…（この間に押された分は届きません）
+    </p>
+  );
+
   if (phase === "waiting") {
     return (
-      <div className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-50 to-blue-100">
+      <div onClickCapture={onAnyTap} className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-50 to-blue-100">
+        {connectionWarning}
         <header className="px-4 pt-4">
           <Link href="/" className="text-sm text-indigo-600 hover:text-indigo-800 underline">
             ← トップへ
@@ -108,12 +169,21 @@ export default function HostClient() {
           <div className="text-center">
             <button
               onClick={start}
-              disabled={phoneNames.length === 0}
+              disabled={!inProgress && phoneNames.length === 0}
               className="rounded-full bg-indigo-600 px-16 py-4 text-2xl font-bold text-white shadow-lg hover:bg-indigo-700 active:bg-indigo-800 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
             >
-              スタート！
+              {inProgress ? `続きから（第${questionNo}問）` : "スタート！"}
             </button>
-            {phoneNames.length === 0 && <p className="mt-2 text-xs text-gray-400">参加者が入ると押せます</p>}
+            {!inProgress && phoneNames.length === 0 && (
+              <p className="mt-2 text-xs text-gray-400">参加者が入ると押せます</p>
+            )}
+            {inProgress && (
+              <p className="mt-3">
+                <button onClick={restart} className="text-sm text-gray-500 hover:text-gray-700 underline">
+                  最初からやり直す（得点も消えます）
+                </button>
+              </p>
+            )}
           </div>
         </main>
       </div>
@@ -121,7 +191,13 @@ export default function HostClient() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-50 to-blue-100">
+    <div onClickCapture={onAnyTap} className="flex min-h-screen flex-col bg-gradient-to-br from-indigo-50 to-blue-100">
+      {connectionWarning}
+      {soundLocked && (
+        <button className="w-full bg-yellow-300 px-4 py-2 text-center text-sm font-bold text-yellow-900">
+          🔔 画面をタップすると音が鳴るようになります
+        </button>
+      )}
       <header className="flex items-center justify-between gap-2 px-4 pt-4">
         <button
           onClick={() => setPhase("waiting")}
@@ -213,24 +289,45 @@ export default function HostClient() {
             </ol>
           )}
 
-          {judgments.length > 0 && (
+          {judgments.length > 0 ? (
             <button
               onClick={() => setJudgments((prev) => prev.slice(0, -1))}
               className="text-sm text-gray-500 hover:text-gray-700 underline"
             >
               ↶ 1つ戻す
             </button>
+          ) : (
+            previous && (
+              <button onClick={undoNext} className="text-sm text-gray-500 hover:text-gray-700 underline">
+                ↶ 第{previous.questionNo}問に戻す
+              </button>
+            )
           )}
         </section>
 
         {ranking.length > 0 && (
           <section className="rounded-2xl bg-white p-6 shadow-lg">
             <h2 className="mb-3 text-sm font-bold text-gray-500">得点</h2>
-            <ol className="space-y-1">
+            <ol className="space-y-2">
               {ranking.map(([name, score]) => (
-                <li key={name} className="flex items-baseline justify-between gap-3">
-                  <span className="break-all font-bold text-gray-800">{name}</span>
+                <li key={name} className="flex items-center gap-3">
+                  <span className="min-w-0 flex-1 break-all font-bold text-gray-800">{name}</span>
                   <span className="shrink-0 font-bold text-indigo-600">{score}点</span>
+                  <button
+                    onClick={() => adjustScore(name, -1)}
+                    disabled={score <= 0}
+                    aria-label={`${name}を1点減らす`}
+                    className="h-9 w-9 shrink-0 rounded-full border border-gray-200 text-gray-600 active:bg-gray-100 disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={() => adjustScore(name, 1)}
+                    aria-label={`${name}を1点増やす`}
+                    className="h-9 w-9 shrink-0 rounded-full border border-gray-200 text-gray-600 active:bg-gray-100"
+                  >
+                    ＋
+                  </button>
                 </li>
               ))}
             </ol>
@@ -250,8 +347,6 @@ export default function HostClient() {
     </div>
   );
 }
-
-type Judgment = { id: string; result: "correct" | "wrong" };
 
 function ParticipantList({ names }: { names: string[] }) {
   return (

@@ -42,6 +42,7 @@ function saveNewRoom() {
  *   phoneNames: 部屋にいるスマホの名前（Presence で受け取る）
  *   newRoom:    部屋を作り直す（面接デモなどで他人に渡した QR を無効にしたいとき）
  *   sendRanking: 押した順（id の並び）を全員のスマホへ送る。スマホはこれでランプを点ける
+ *   connectionLost: 接続が切れてつなぎ直している最中か。この間に押された合図は届かない
  *
  * onBuzz は phase などで毎回作り直されるが、そのたびにチャンネルへ入り直すと
  * 入り直しの隙間に押された合図を取りこぼす。チャンネルは部屋ごとに1回だけ作り、
@@ -50,6 +51,7 @@ function saveNewRoom() {
 export function useBuzzerRoom(onBuzz?: (buzz: BuzzPayload | null) => void) {
   const [room, setRoom] = useState<string | null>(null);
   const [phoneNames, setPhoneNames] = useState<string[]>([]);
+  const [connectionLost, setConnectionLost] = useState(false);
   const onBuzzRef = useRef(onBuzz);
   const channelRef = useRef<RealtimeChannel | null>(null);
   // 最後に送った順番。あとから入った（読み込み直した）スマホにも送り直すために覚えておく
@@ -69,20 +71,25 @@ export function useBuzzerRoom(onBuzz?: (buzz: BuzzPayload | null) => void) {
     if (!room) return;
     const supabase = createClient();
     const channel = supabase.channel(buzzerChannelName(room));
+    channelRef.current = channel;
     channel
       .on("broadcast", { event: BUZZ_EVENT }, ({ payload }) => onBuzzRef.current?.(parseBuzzPayload(payload)))
       .on("presence", { event: "sync" }, () => {
         setPhoneNames(buzzerNames(channel));
-        if (rankingRef.current.length > 0) broadcastRanking(channel, rankingRef.current);
+        // 切れている間に「次の問題へ」が進んだスマホのランプも消えるよう、空の順番も送る
+        broadcastRanking(channel, rankingRef.current);
       })
       .subscribe((status) => {
-        // スマホ側に「司会とつながっている」と見せるため、自分も名乗っておく
+        // 部屋を作り直したあとに届く、古いチャンネルの知らせは無視する
+        if (channelRef.current !== channel) return;
+        setConnectionLost(status !== "SUBSCRIBED");
+        // スマホ側に「司会とつながっている」と見せるため、自分も名乗っておく（つなぎ直したときも）
         if (status === "SUBSCRIBED") channel.track({ role: "host" });
       });
-    channelRef.current = channel;
     return () => {
       channelRef.current = null;
       setPhoneNames([]);
+      setConnectionLost(false);
       supabase.removeChannel(channel);
     };
   }, [room]);
@@ -95,7 +102,7 @@ export function useBuzzerRoom(onBuzz?: (buzz: BuzzPayload | null) => void) {
   }, []);
 
   const url = room ? `${phoneOrigin()}/buzzer?room=${room}` : null;
-  return { url, phoneNames, newRoom, sendRanking };
+  return { url, phoneNames, connectionLost, newRoom, sendRanking };
 }
 
 function broadcastRanking(channel: RealtimeChannel, ids: string[]) {

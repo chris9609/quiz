@@ -18,6 +18,23 @@ export function randomId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * このスマホの印。読み込み直しても同じ人として数えるよう、部屋と名前ごとにブラウザへ覚えておく。
+ * 名前も鍵に入れるので、同じブラウザのタブで別の名前を使えば別人になる（ひとりで試すとき用）。
+ */
+export function loadBuzzerId(room: string, name: string): string {
+  const key = `buzzerId:${room}:${name}`;
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) return saved;
+    const id = randomId();
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return randomId();
+  }
+}
+
 export function buzzerChannelName(room: string) {
   return `buzzer:${room}`;
 }

@@ -5,6 +5,8 @@ import { BUZZER_NAME_MAX } from "@/lib/buzzer";
 import BuzzerClient from "./BuzzerClient";
 
 const NAME_STORAGE_KEY = "buzzerName";
+/** 読み込み直したときは名前を聞き直さずボタンに戻す。タブごとの記憶なので、QR を読み直せば名前を直せる */
+const enteredKey = (room: string) => `buzzerEntered:${room}`;
 
 /**
  * ボタンを出す前に名前を聞く。PC 側に「誰がつながったか」を出すため。
@@ -18,8 +20,10 @@ export default function BuzzerEntry({ room }: { room: string }) {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage はブラウザでしか読めない
       setDraft(localStorage.getItem(NAME_STORAGE_KEY) ?? "");
+      const entered = sessionStorage.getItem(enteredKey(room));
+      if (entered) setName(entered);
     } catch {}
-  }, []);
+  }, [room]);
 
   if (name) return <BuzzerClient room={room} name={name} />;
 
@@ -29,6 +33,7 @@ export default function BuzzerEntry({ room }: { room: string }) {
     if (!trimmed) return;
     try {
       localStorage.setItem(NAME_STORAGE_KEY, trimmed);
+      sessionStorage.setItem(enteredKey(room), trimmed);
     } catch {}
     setName(trimmed);
   };
