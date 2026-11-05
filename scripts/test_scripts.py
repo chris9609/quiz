@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from generate_quiz import validate  # noqa: E402
 from review_with_claude import apply_reviews, build_prompt, parse_reviews  # noqa: E402
 from export_anki import build_note, format_back, is_duplicate_error  # noqa: E402
-from shorten_name_answers import SHORT_NAMES, merge_aliases  # noqa: E402
+from shorten_name_answers import QUESTION_FIXES, SHORT_NAMES, fixed_question, merge_aliases  # noqa: E402
 
 
 # ============================================================ validate()
@@ -308,6 +308,15 @@ class TestShortNames(unittest.TestCase):
 
     def test_別解がnullでも動く(self):
         self.assertEqual(merge_aliases(None, ["フランツ・カフカ"], "カフカ"), ["フランツ・カフカ"])
+
+    def test_問題文の修正で答えが消える(self):
+        full = "エメリヤーエンコ・ヒョードル"
+        fixed = fixed_question(full, "元格闘家で、" + QUESTION_FIXES[full][0])
+        self.assertEqual(fixed, "元格闘家で、多くの王座を持つ人物は誰？")
+        self.assertNotIn("ヒョードル", fixed)
+
+    def test_修正対象でない問題文はそのまま(self):
+        self.assertEqual(fixed_question("フランツ・カフカ", "問題文"), "問題文")
 
     def test_新しい答えは元の名前の一部(self):
         for full, (short, *_) in SHORT_NAMES.items():

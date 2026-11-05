@@ -61,7 +61,6 @@ SHORT_NAMES: dict[str, list[str]] = {
     "ルイーザ・メイ・オルコット": ["オルコット"],
     "ヨハン・クライフ": ["クライフ"],
     "パウル・フォン・ヒンデンブルク": ["ヒンデンブルク"],
-    "サタジット・レイ": ["レイ"],
     "クラウス・フォン・シュタウフェンベルク": ["シュタウフェンベルク"],
     "エルヴィン・ロンメル": ["ロンメル"],
     "オットー・フォン・ビスマルク": ["ビスマルク"],
@@ -69,6 +68,22 @@ SHORT_NAMES: dict[str, list[str]] = {
     "チャールズ・チャップリン": ["チャップリン"],
     "フランツ・カフカ": ["カフカ"],
 }
+
+
+# 短くすると問題文に答えが出てしまう問題の直し（現在の答え → (直す部分, 直した後)）
+QUESTION_FIXES: dict[str, tuple[str, str]] = {
+    "エメリヤーエンコ・ヒョードル": ("多くの王座を持つチーム・ヒョードルの主宰者は誰？", "多くの王座を持つ人物は誰？"),
+}
+
+
+def fixed_question(full: str, question: str) -> str:
+    """答えが出てしまう問題文を直す。想定の文が無ければ黙って進めずに止める"""
+    if full not in QUESTION_FIXES:
+        return question
+    old, new = QUESTION_FIXES[full]
+    if old not in question:
+        sys.exit(f"直す部分が問題文に見つからないので中止します: {full}")
+    return question.replace(old, new)
 
 
 def merge_aliases(current: list[str] | None, additions: list[str], answer: str = "") -> list[str]:
@@ -95,9 +110,11 @@ def main() -> None:
             continue  # 短縮済み
         if short in by_answer and short not in SHORT_NAMES:
             sys.exit(f"短くすると既存の答えと重複するので中止します: {short}")
-        changes.append((row, short, merge_aliases(row["accepted_answers"], [full, *extras], short)))
-        leak = "  ⚠ 問題文に答えが出ている" if short in row["question"] else ""
-        print(f"{full} → {short}{leak}")
+        question = fixed_question(full, row["question"])
+        if short in question:
+            sys.exit(f"問題文に答えが出ているので中止します: {short}")
+        changes.append((row, short, question, merge_aliases(row["accepted_answers"], [full, *extras], short)))
+        print(f"{full} → {short}" + ("（問題文も修正）" if question != row["question"] else ""))
     print(f"\n変更あり {len(changes)} 問")
 
     if not apply_to:
@@ -106,9 +123,9 @@ def main() -> None:
 
     Path(apply_to).write_text(json.dumps(rows, ensure_ascii=False, indent=2))
     print(f"バックアップ: {apply_to}（{len(rows)} 行）")
-    for row, short, merged in changes:
+    for row, short, question, merged in changes:
         _request(f"quizzes?id=eq.{quote(row['id'])}", key, method="PATCH",
-                 body={"answer": short, "accepted_answers": merged},
+                 body={"answer": short, "question": question, "accepted_answers": merged},
                  extra_headers={"Prefer": "return=minimal"})
     print(f"✅ {len(changes)} 問を更新しました")
 
