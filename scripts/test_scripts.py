@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from generate_quiz import validate  # noqa: E402
 from review_with_claude import apply_reviews, build_prompt, parse_reviews  # noqa: E402
 from export_anki import build_note, format_back, is_duplicate_error  # noqa: E402
+from shorten_name_answers import SHORT_NAMES, merge_aliases  # noqa: E402
 
 
 # ============================================================ validate()
@@ -290,6 +291,27 @@ class TestExportAnki(unittest.TestCase):
         self.assertTrue(is_duplicate_error(RuntimeError(
             "AnkiConnect エラー（addNote）: cannot create note because it is a duplicate")))
         self.assertFalse(is_duplicate_error(RuntimeError("AnkiConnect エラー（addNote）: deck was not found")))
+
+
+# ============================================================ shorten_name_answers
+
+class TestShortNames(unittest.TestCase):
+    def test_既存の別解を残してフルネームを足す(self):
+        self.assertEqual(merge_aliases(["びすまるく"], ["オットー・フォン・ビスマルク"], "ビスマルク"),
+                         ["びすまるく", "オットー・フォン・ビスマルク"])
+
+    def test_同じ別解は増やさない(self):
+        self.assertEqual(merge_aliases(["カフカ"], ["カフカ"]), ["カフカ"])
+
+    def test_新しい答えと同じ別解は外す(self):
+        self.assertEqual(merge_aliases(["カフカ", "ふらんつかふか"], [], "カフカ"), ["ふらんつかふか"])
+
+    def test_別解がnullでも動く(self):
+        self.assertEqual(merge_aliases(None, ["フランツ・カフカ"], "カフカ"), ["フランツ・カフカ"])
+
+    def test_新しい答えは元の名前の一部(self):
+        for full, (short, *_) in SHORT_NAMES.items():
+            self.assertIn(short, full)
 
 
 if __name__ == "__main__":
