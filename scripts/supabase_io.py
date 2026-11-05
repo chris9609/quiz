@@ -75,21 +75,24 @@ def fetch_existing_answers() -> set[str]:
     return {r["answer"] for r in rows}
 
 
-def insert_quizzes(items: list[dict]) -> int:
+def quiz_row(item: dict) -> dict:
     """
-    候補をDBへ投入する。items は generate_quiz.py が作る形式。
+    候補を quizzes テーブルの行にする。
     reading は accepted_answers の別解として入れる（答え合わせで読みを許容するため）。
+    short_answer があれば答えはそちらにして、フルネームは別解に残す。
     """
+    short = item.get("short_answer")
+    aliases = [item["answer"]] if short else []
+    if item.get("reading"):
+        aliases.append(item["reading"])
+    return {"question": item["question"], "answer": short or item["answer"], "accepted_answers": aliases}
+
+
+def insert_quizzes(items: list[dict]) -> int:
+    """候補をDBへ投入する。items は generate_quiz.py が作る形式"""
     if not items:
         return 0
-    payload = [
-        {
-            "question": it["question"],
-            "answer": it["answer"],
-            "accepted_answers": [it["reading"]] if it.get("reading") else [],
-        }
-        for it in items
-    ]
+    payload = [quiz_row(it) for it in items]
     _request("quizzes", _secret_key(), method="POST", body=payload,
              extra_headers={"Prefer": "return=minimal"})
     return len(payload)

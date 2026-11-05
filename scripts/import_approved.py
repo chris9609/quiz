@@ -40,7 +40,7 @@ def main() -> None:
 
     print(f"投入対象: {len(targets)} 問")
     for it in targets:
-        print(f"  [{it['answer']}] {it['question'][:45]}...")
+        print(f"  [{it.get('short_answer') or it['answer']}] {it['question'][:45]}...")
 
     if "--yes" not in sys.argv:
         try:

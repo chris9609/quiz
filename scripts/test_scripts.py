@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from generate_quiz import validate  # noqa: E402
 from review_with_claude import apply_reviews, build_prompt, parse_reviews  # noqa: E402
 from export_anki import build_note, format_back, is_duplicate_error  # noqa: E402
+from supabase_io import quiz_row  # noqa: E402
 from shorten_name_answers import QUESTION_FIXES, SHORT_NAMES, fixed_question, merge_aliases  # noqa: E402
 
 
@@ -184,6 +185,65 @@ class TestApplyReviews(unittest.TestCase):
         self.assertEqual(new[0]["status"], "approved")
 
 
+class TestShortAnswer(unittest.TestCase):
+    FULL = "オットー・フォン・ビスマルク"
+
+    def review(self, short, status="approved", question=None):
+        r = {**rv(self.FULL, status), "short_answer": short}
+        if question:
+            r["question"] = question
+        return apply_reviews([review_cand(self.FULL)], [r])
+
+    def test_採用なら記録し候補の答えは記事名のまま(self):
+        new, errors = self.review("ビスマルク")
+        self.assertEqual(errors, [])
+        self.assertEqual(new[0]["short_answer"], "ビスマルク")
+        self.assertEqual(new[0]["answer"], self.FULL)
+
+    def test_見送りなら記録しない(self):
+        new, errors = self.review("ビスマルク", "rejected")
+        self.assertEqual(errors, [])
+        self.assertNotIn("short_answer", new[0])
+
+    def test_答えの一部でなければエラー(self):
+        new, errors = self.review("鉄血宰相")
+        self.assertEqual(len(errors), 1)
+        self.assertNotIn("short_answer", new[0])
+
+    def test_問題文に出ていたらエラー(self):
+        cand = {**review_cand(self.FULL), "question": REVIEW_Q + "ビスマルク"}
+        _, errors = apply_reviews([cand], [{**rv(self.FULL), "short_answer": "ビスマルク"}])
+        self.assertEqual(len(errors), 1)
+
+    def test_手直しで問題文から消せば通る(self):
+        cand = {**review_cand(self.FULL), "question": REVIEW_Q + "ビスマルク"}
+        new, errors = apply_reviews([cand], [{**rv(self.FULL), "short_answer": "ビスマルク", "question": REVIEW_Q}])
+        self.assertEqual(errors, [])
+        self.assertEqual(new[0]["short_answer"], "ビスマルク")
+
+    def test_手直し後の問題文に出ていたらエラー(self):
+        _, errors = self.review("ビスマルク", question=REVIEW_Q[:-1] + "ビスマルク？")
+        self.assertEqual(len(errors), 1)
+
+    def test_答えと同じなら付けない(self):
+        new, errors = self.review(self.FULL)
+        self.assertEqual(errors, [])
+        self.assertNotIn("short_answer", new[0])
+
+
+class TestQuizRow(unittest.TestCase):
+    def test_短い答えがなければ今までどおり(self):
+        row = quiz_row({"question": "問", "answer": "水星", "reading": "すいせい"})
+        self.assertEqual(row, {"question": "問", "answer": "水星", "accepted_answers": ["すいせい"]})
+
+    def test_読みがなければ別解は空(self):
+        self.assertEqual(quiz_row({"question": "問", "answer": "水星"})["accepted_answers"], [])
+
+    def test_短い答えがあればフルネームを別解に残す(self):
+        row = quiz_row({"question": "問", "answer": "フランツ・カフカ", "reading": "", "short_answer": "カフカ"})
+        self.assertEqual(row, {"question": "問", "answer": "カフカ", "accepted_answers": ["フランツ・カフカ"]})
+
+
 class TestParseReviews(unittest.TestCase):
     ARR = [{"answer": "水星", "status": "approved", "reason": "有名"}]
 
@@ -239,6 +299,8 @@ class TestBuild(unittest.TestCase):
         self.assertIn("事実の裏取り", prompt)   # rubric の中身が埋め込まれている
         self.assertIn("45〜150 文字", prompt)   # validate() の定数と揃っている
         self.assertIn('"status": "approved または rejected"', prompt)
+        self.assertIn('"short_answer"', prompt)
+        self.assertIn("人名の答え", prompt)   # rubric の短縮基準も渡している
 
     def test_ツールなしで動く旨を明記(self):
         # rubric には fetch_extract を呼ぶ手順が書いてあるが、claude -p は --tools "" で動く。

@@ -15,9 +15,11 @@ API 課金ではなくサブスク枠（OAuth）で動かすため --bare は付
 
 判定 JSON の契約（プロンプトの HEADER と parse/apply を揃えること）:
   [{"answer": "候補の answer と完全一致", "status": "approved|rejected", "reason": "必須",
-    "question": "（任意）言い回しを手直しした問題文"}]
+    "question": "（任意）言い回しを手直しした問題文", "short_answer": "（任意）人名の姓や通称"}]
   - question は approved のときだけ有効。generate_quiz.validate() を通らなければ拒否。
     元の文は original_question に残す
+  - short_answer は approved のときだけ有効。answer の一部で、問題文に含まれないものだけ受け付ける。
+    候補の answer は記事名のまま残す（作問時の重複チェックに使うため）。DB には投入時に short_answer を入れる
   - 対象は status=pending の候補だけ。imported を approved に戻すと import_approved.py が
     二重投入するので拒否する
   - 判定に含まれない pending は pending のまま残す（次回また出る）
@@ -74,7 +76,7 @@ HEADER = """あなたは早押しクイズの候補問題をレビューする�
 
 ```json
 [
-  {{"answer": "候補の answer をそのままコピー", "status": "approved または rejected", "reason": "判定理由（照合した根拠を含める）", "question": "（任意）手直しした問題文"}}
+  {{"answer": "候補の answer をそのままコピー", "status": "approved または rejected", "reason": "判定理由（照合した根拠を含める）", "question": "（任意）手直しした問題文", "short_answer": "（任意）人名の姓や通称"}}
 ]
 ```
 
@@ -88,6 +90,10 @@ HEADER = """あなたは早押しクイズの候補問題をレビューする�
   - 「？」で終わる
   - 問題文の中に answer の文字列を含めない
   - 出典にない事実を足さない。答えは変えない
+- `short_answer` は、answer が人名のフルネームで、姓や通称のほうが普通の呼び方のときだけ付けてください。
+  採否基準の「人名の答え」に従います。機械チェックにかかるので、次を必ず守ってください:
+  - answer の文字列の連続した一部にする（例: オットー・フォン・ビスマルク → ビスマルク）
+  - 問題文（手直しするなら手直し後の文）に含めない。含まれるなら問題文を手直しする
 - 判定できない候補があれば、その候補は配列に入れないでください（pending のまま次回に回ります）。
 
 # 候補（{count} 件）
@@ -220,7 +226,7 @@ def apply_reviews(items: list[dict], reviews: list) -> tuple[list[dict], list[st
         else:
             non_pending[it["answer"]] = it.get("status", "?")
 
-    updates: dict[int, tuple[str, str, str | None]] = {}
+    updates: dict[int, tuple[str, str, str | None, str | None]] = {}
     seen: set[str] = set()
     for n, rv in enumerate(reviews, 1):
         if not isinstance(rv, dict):
@@ -230,6 +236,7 @@ def apply_reviews(items: list[dict], reviews: list) -> tuple[list[dict], list[st
         status = str(rv.get("status", "")).strip()
         reason = str(rv.get("reason", "")).strip()
         question = str(rv.get("question") or "").strip() or None
+        short_answer = str(rv.get("short_answer") or "").strip() or None
         if not answer:
             errors.append(f"{n}件目: answer がありません")
             continue
@@ -259,19 +266,28 @@ def apply_reviews(items: list[dict], reviews: list) -> tuple[list[dict], list[st
                 why = validate({**items[idxs[0]], "question": question}, answer, set())
                 if why:
                     errors.append(f"[{answer}] 手直しした問題文が不正です: {why}")
-        updates[idxs[0]] = (status, reason, question)
+        if short_answer == answer:
+            short_answer = None  # 短くなっていないなら付けない
+        if short_answer is not None and status == "approved":
+            if short_answer not in answer:
+                errors.append(f"[{answer}] short_answer が answer の一部ではありません: {short_answer!r}")
+            elif short_answer in (question or items[idxs[0]]["question"]):
+                errors.append(f"[{answer}] short_answer が問題文に露出しています: {short_answer!r}")
+        updates[idxs[0]] = (status, reason, question, short_answer)
 
     if errors:
         return items, errors
 
     new_items = [dict(it) for it in items]
-    for i, (status, reason, question) in updates.items():
+    for i, (status, reason, question, short_answer) in updates.items():
         new_items[i]["status"] = status
         new_items[i]["review_reason"] = reason
         new_items[i]["reviewed_by"] = REVIEWER
         if question is not None and status == "approved":
             new_items[i]["original_question"] = new_items[i]["question"]
             new_items[i]["question"] = question
+        if short_answer is not None and status == "approved":
+            new_items[i]["short_answer"] = short_answer
     return new_items, []
 
 
@@ -341,6 +357,8 @@ def main() -> None:
         print(f"{mark} [{new['answer']}] pending → {new['status']}: {new['review_reason']}")
         if old["question"] != new["question"]:
             print(f"    問題文を手直し:\n      旧: {old['question']}\n      新: {new['question']}")
+        if new.get("short_answer"):
+            print(f"    答えを短縮: {new['short_answer']}")
     still_pending = sum(1 for it in new_items if it["status"] == "pending")
     if still_pending:
         print(f"（判定なしで pending のまま: {still_pending} 件）")

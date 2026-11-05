@@ -130,12 +130,13 @@ python3 scripts/import_approved.py      # 採用したものをDBへ投入
 
 ```
 build_prompt()   採否基準 + pending 候補 + 各候補の Wikipedia 導入部を1つのプロンプトに組む
-run_claude()     claude -p --tools "" で読ませ、判定 JSON [{answer,status,reason,question?}] だけ返させる
+run_claude()     claude -p --tools "" で読ませ、判定 JSON [{answer,status,reason,question?,short_answer?}] だけ返させる
 apply_reviews()  検証して candidates.json に書き戻す（1件でも不正なら何も書かない）
 ```
 
 Claude に材料を全部渡してツールを持たせないのは、無人実行で候補ファイルや DB を触られる余地を無くすため。
 判定の JSON に `question` を付けると問題文の言い回しを手直しできる（元の文は `original_question` に残る）。
+人名の答えには `short_answer` で姓や通称を付けられる。DBではそれが答えになり、フルネームは別解に残る。`data/candidates.json` の `answer` は重複チェックのため記事名のまま。
 `claude -p` はサブスク枠（OAuth）で動くので API 課金はない。`--bare` を付けると API キー必須になるので付けない。
 
 `--dry-run` で書き戻しだけ止められる。`--list` で候補の状態一覧。
